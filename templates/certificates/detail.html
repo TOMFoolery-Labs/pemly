@@ -1,0 +1,224 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ certificate.common_name }}{% endblock %}
+
+{% block content %}
+<div class="mb-8 flex items-center justify-between">
+  <div>
+    <div class="flex items-center gap-3">
+      <h1 class="text-2xl font-semibold text-slate-900">{{ certificate.common_name }}</h1>
+      {% if certificate.status == 'active' %}
+        {% if certificate.is_expiring_soon %}
+        <span class="badge-warning">Expiring Soon</span>
+        {% else %}
+        <span class="badge-success">Active</span>
+        {% endif %}
+      {% elif certificate.status == 'revoked' %}
+      <span class="badge-danger">Revoked</span>
+      {% elif certificate.status == 'expired' %}
+      <span class="badge-neutral">Expired</span>
+      {% endif %}
+    </div>
+    <p class="mt-1 text-sm text-slate-500">{{ certificate.get_type_display }}</p>
+  </div>
+  <div class="flex items-center gap-3">
+    {% if certificate.status == 'active' %}
+    <a href="{% url 'core:certificate_revoke' pk=certificate.pk %}" class="btn-danger">
+      Revoke
+    </a>
+    {% endif %}
+    <a href="{% url 'core:certificate_list' %}" class="btn-secondary">
+      Back to List
+    </a>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+  <!-- Main Info -->
+  <div class="lg:col-span-2 space-y-6">
+    <!-- Certificate Details -->
+    <div class="card">
+      <div class="card-header">
+        <h2 class="text-lg font-medium text-slate-900">Certificate Details</h2>
+      </div>
+      <div class="card-body">
+        <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+          <div>
+            <dt class="text-sm font-medium text-slate-500">Common Name</dt>
+            <dd class="mt-1 text-sm text-slate-900">{{ certificate.common_name }}</dd>
+          </div>
+          <div>
+            <dt class="text-sm font-medium text-slate-500">Organization</dt>
+            <dd class="mt-1 text-sm text-slate-900">{{ certificate.organization|default:"-" }}</dd>
+          </div>
+          <div>
+            <dt class="text-sm font-medium text-slate-500">Type</dt>
+            <dd class="mt-1 text-sm text-slate-900">{{ certificate.get_type_display }}</dd>
+          </div>
+          <div>
+            <dt class="text-sm font-medium text-slate-500">Key Algorithm</dt>
+            <dd class="mt-1 text-sm text-slate-900">{{ certificate.get_key_algorithm_display }} {{ certificate.key_size }}-bit</dd>
+          </div>
+          <div>
+            <dt class="text-sm font-medium text-slate-500">Serial Number</dt>
+            <dd class="mt-1 text-sm text-slate-900 font-mono">{{ certificate.serial_number|default:"N/A" }}</dd>
+          </div>
+          <div>
+            <dt class="text-sm font-medium text-slate-500">Issuing CA</dt>
+            <dd class="mt-1 text-sm text-slate-900">{{ certificate.ca.name }}</dd>
+          </div>
+          <div>
+            <dt class="text-sm font-medium text-slate-500">Valid From</dt>
+            <dd class="mt-1 text-sm text-slate-900">{{ certificate.not_before|date:"M d, Y H:i" }}</dd>
+          </div>
+          <div>
+            <dt class="text-sm font-medium text-slate-500">Valid Until</dt>
+            <dd class="mt-1 text-sm text-slate-900">{{ certificate.not_after|date:"M d, Y H:i" }}</dd>
+          </div>
+          <div>
+            <dt class="text-sm font-medium text-slate-500">Days Until Expiry</dt>
+            <dd class="mt-1 text-sm text-slate-900">
+              {% if certificate.days_until_expiry is not None %}
+              {{ certificate.days_until_expiry }} days
+              {% else %}
+              N/A
+              {% endif %}
+            </dd>
+          </div>
+          <div>
+            <dt class="text-sm font-medium text-slate-500">Created</dt>
+            <dd class="mt-1 text-sm text-slate-900">{{ certificate.created_at|date:"M d, Y H:i" }} by {{ certificate.created_by.username }}</dd>
+          </div>
+        </dl>
+      </div>
+    </div>
+
+    <!-- Subject Alternative Names -->
+    {% if certificate.san_dns_names or certificate.san_ip_addresses %}
+    <div class="card">
+      <div class="card-header">
+        <h2 class="text-lg font-medium text-slate-900">Subject Alternative Names</h2>
+      </div>
+      <div class="card-body">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          {% if certificate.san_dns_names %}
+          <div>
+            <h3 class="text-sm font-medium text-slate-500 mb-2">DNS Names</h3>
+            <ul class="space-y-1">
+              {% for dns in certificate.san_dns_names %}
+              <li class="text-sm text-slate-900 font-mono">{{ dns }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+          {% endif %}
+          {% if certificate.san_ip_addresses %}
+          <div>
+            <h3 class="text-sm font-medium text-slate-500 mb-2">IP Addresses</h3>
+            <ul class="space-y-1">
+              {% for ip in certificate.san_ip_addresses %}
+              <li class="text-sm text-slate-900 font-mono">{{ ip }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Revocation Info -->
+    {% if certificate.status == 'revoked' %}
+    <div class="card border-red-200">
+      <div class="card-header bg-red-50">
+        <h2 class="text-lg font-medium text-red-900">Revocation Details</h2>
+      </div>
+      <div class="card-body">
+        <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+          <div>
+            <dt class="text-sm font-medium text-slate-500">Revoked At</dt>
+            <dd class="mt-1 text-sm text-slate-900">{{ certificate.revoked_at|date:"M d, Y H:i" }}</dd>
+          </div>
+          <div>
+            <dt class="text-sm font-medium text-slate-500">Reason</dt>
+            <dd class="mt-1 text-sm text-slate-900">{{ certificate.get_revocation_reason_display }}</dd>
+          </div>
+        </dl>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Certificate PEM -->
+    <div class="card">
+      <div class="card-header flex items-center justify-between">
+        <h2 class="text-lg font-medium text-slate-900">Certificate (PEM)</h2>
+        <button onclick="navigator.clipboard.writeText(document.getElementById('cert-pem').textContent)" class="btn-secondary btn-sm">
+          Copy
+        </button>
+      </div>
+      <div class="card-body">
+        <pre id="cert-pem" class="bg-slate-50 p-4 rounded-lg text-xs font-mono overflow-x-auto whitespace-pre-wrap break-all">{{ certificate.certificate_pem }}</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="space-y-6">
+    <!-- Download Actions -->
+    <div class="card">
+      <div class="card-header">
+        <h2 class="text-lg font-medium text-slate-900">Download</h2>
+      </div>
+      <div class="card-body space-y-3">
+        <a href="{% url 'core:certificate_download' pk=certificate.pk file_type='cert' %}" class="btn-primary w-full justify-center">
+          <svg class="h-4 w-4 mr-2 -ml-1" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+          </svg>
+          Certificate (.crt)
+        </a>
+        {% if certificate.has_private_key %}
+        <a href="{% url 'core:certificate_download' pk=certificate.pk file_type='key' %}" class="btn-secondary w-full justify-center">
+          <svg class="h-4 w-4 mr-2 -ml-1" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" />
+          </svg>
+          Private Key (.key)
+        </a>
+        {% endif %}
+        <a href="{% url 'core:certificate_download' pk=certificate.pk file_type='chain' %}" class="btn-secondary w-full justify-center">
+          <svg class="h-4 w-4 mr-2 -ml-1" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
+          </svg>
+          Full Chain (.crt)
+        </a>
+        <a href="{% url 'core:certificate_download' pk=certificate.pk file_type='ca' %}" class="btn-secondary w-full justify-center">
+          CA Certificate
+        </a>
+      </div>
+    </div>
+
+    <!-- Certificate Info -->
+    <div class="card">
+      <div class="card-header">
+        <h2 class="text-lg font-medium text-slate-900">Quick Info</h2>
+      </div>
+      <div class="card-body">
+        <dl class="space-y-3 text-sm">
+          <div class="flex justify-between">
+            <dt class="text-slate-500">Has Private Key</dt>
+            <dd class="font-medium">
+              {% if certificate.has_private_key %}
+              <span class="text-green-600">Yes</span>
+              {% else %}
+              <span class="text-slate-400">No (CSR-based)</span>
+              {% endif %}
+            </dd>
+          </div>
+          <div class="flex justify-between">
+            <dt class="text-slate-500">Validity</dt>
+            <dd class="font-medium">{{ certificate.validity_days }} days</dd>
+          </div>
+        </dl>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

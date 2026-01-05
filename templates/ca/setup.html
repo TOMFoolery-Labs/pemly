@@ -1,0 +1,128 @@
+{% extends 'base.html' %}
+
+{% block title %}Set Up Certificate Authority{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+  <div class="mb-8">
+    <h1 class="text-2xl font-semibold text-slate-900">Set Up Your Certificate Authority</h1>
+    <p class="mt-1 text-sm text-slate-500">Create your root CA to start issuing certificates.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      <form method="post" class="space-y-6">
+        {% csrf_token %}
+
+        <!-- CA Name -->
+        <div>
+          <label for="id_name" class="form-label">CA Name</label>
+          <input type="text" name="name" id="id_name" required
+                 class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg"
+                 placeholder="My Organization Root CA"
+                 value="{{ form.name.value|default:'' }}">
+          <p class="form-help">{{ form.name.help_text }}</p>
+          {% if form.name.errors %}<p class="form-error">{{ form.name.errors.0 }}</p>{% endif %}
+        </div>
+
+        <!-- Common Name -->
+        <div>
+          <label for="id_common_name" class="form-label">Common Name (CN)</label>
+          <input type="text" name="common_name" id="id_common_name" required
+                 class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg"
+                 placeholder="My Organization Root CA"
+                 value="{{ form.common_name.value|default:'' }}">
+          <p class="form-help">{{ form.common_name.help_text }}</p>
+          {% if form.common_name.errors %}<p class="form-error">{{ form.common_name.errors.0 }}</p>{% endif %}
+        </div>
+
+        <!-- Organization Details -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label for="id_organization" class="form-label">Organization</label>
+            <input type="text" name="organization" id="id_organization" required
+                   class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg"
+                   placeholder="My Organization, Inc."
+                   value="{{ form.organization.value|default:'' }}">
+            {% if form.organization.errors %}<p class="form-error">{{ form.organization.errors.0 }}</p>{% endif %}
+          </div>
+          <div>
+            <label for="id_organizational_unit" class="form-label">Organizational Unit</label>
+            <input type="text" name="organizational_unit" id="id_organizational_unit"
+                   class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg"
+                   placeholder="IT Department"
+                   value="{{ form.organizational_unit.value|default:'' }}">
+            {% if form.organizational_unit.errors %}<p class="form-error">{{ form.organizational_unit.errors.0 }}</p>{% endif %}
+          </div>
+        </div>
+
+        <!-- Location -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label for="id_country" class="form-label">Country Code</label>
+            <input type="text" name="country" id="id_country" required maxlength="2"
+                   class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg uppercase"
+                   placeholder="US"
+                   value="{{ form.country.value|default:'' }}">
+            {% if form.country.errors %}<p class="form-error">{{ form.country.errors.0 }}</p>{% endif %}
+          </div>
+          <div>
+            <label for="id_state" class="form-label">State/Province</label>
+            <input type="text" name="state" id="id_state" required
+                   class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg"
+                   placeholder="California"
+                   value="{{ form.state.value|default:'' }}">
+            {% if form.state.errors %}<p class="form-error">{{ form.state.errors.0 }}</p>{% endif %}
+          </div>
+          <div>
+            <label for="id_locality" class="form-label">City/Locality</label>
+            <input type="text" name="locality" id="id_locality" required
+                   class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg"
+                   placeholder="San Francisco"
+                   value="{{ form.locality.value|default:'' }}">
+            {% if form.locality.errors %}<p class="form-error">{{ form.locality.errors.0 }}</p>{% endif %}
+          </div>
+        </div>
+
+        <!-- Key Configuration -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label for="id_key_algorithm" class="form-label">Key Algorithm</label>
+            <select name="key_algorithm" id="id_key_algorithm"
+                    class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+              {% for value, label in form.key_algorithm.field.choices %}
+              <option value="{{ value }}" {% if form.key_algorithm.value == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label for="id_key_size" class="form-label">Key Size</label>
+            <select name="key_size" id="id_key_size"
+                    class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+              {% for value, label in form.key_size.field.choices %}
+              <option value="{{ value }}" {% if form.key_size.value|stringformat:"s" == value|stringformat:"s" %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label for="id_validity_years" class="form-label">Validity (Years)</label>
+            <input type="number" name="validity_years" id="id_validity_years" min="1" max="30" required
+                   class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg"
+                   value="{{ form.validity_years.value|default:10 }}">
+            {% if form.validity_years.errors %}<p class="form-error">{{ form.validity_years.errors.0 }}</p>{% endif %}
+          </div>
+        </div>
+
+        <div class="pt-4 border-t border-slate-200">
+          <div class="alert-info mb-4">
+            <p class="text-sm">Make sure CFSSL is running before creating the CA.</p>
+          </div>
+          <button type="submit" class="btn-primary w-full py-2.5">
+            Create Certificate Authority
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

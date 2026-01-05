@@ -1,0 +1,25 @@
+{% comment %}
+Page header component with title and optional action button.
+
+Usage:
+{% include 'components/page_header.html' with title="Page Title" subtitle="Optional subtitle" action_url="/path" action_label="Button Text" %}
+{% endcomment %}
+
+<div class="mb-8 flex items-center justify-between">
+  <div>
+    <h1 class="text-2xl font-semibold text-slate-900">{{ title }}</h1>
+    {% if subtitle %}
+    <p class="mt-1 text-sm text-slate-500">{{ subtitle }}</p>
+    {% endif %}
+  </div>
+  {% if action_url %}
+  <a href="{{ action_url }}" class="btn-primary">
+    {% if action_icon %}
+    <svg class="h-4 w-4 mr-2 -ml-1" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+    </svg>
+    {% endif %}
+    {{ action_label }}
+  </a>
+  {% endif %}
+</div>

@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+
+{% block title %}Revoke Certificate{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+  <div class="mb-8">
+    <h1 class="text-2xl font-semibold text-slate-900">Revoke Certificate</h1>
+    <p class="mt-1 text-sm text-slate-500">This action cannot be undone.</p>
+  </div>
+
+  <div class="card border-red-200">
+    <div class="card-header bg-red-50">
+      <h2 class="text-lg font-medium text-red-900">Confirm Revocation</h2>
+    </div>
+    <div class="card-body">
+      <div class="mb-6">
+        <p class="text-sm text-slate-600 mb-4">
+          You are about to revoke the following certificate:
+        </p>
+        <dl class="bg-slate-50 rounded-lg p-4 space-y-2">
+          <div class="flex justify-between">
+            <dt class="text-sm text-slate-500">Common Name</dt>
+            <dd class="text-sm font-medium text-slate-900">{{ certificate.common_name }}</dd>
+          </div>
+          <div class="flex justify-between">
+            <dt class="text-sm text-slate-500">Type</dt>
+            <dd class="text-sm font-medium text-slate-900">{{ certificate.get_type_display }}</dd>
+          </div>
+          <div class="flex justify-between">
+            <dt class="text-sm text-slate-500">Serial Number</dt>
+            <dd class="text-sm font-mono text-slate-900">{{ certificate.serial_number }}</dd>
+          </div>
+          <div class="flex justify-between">
+            <dt class="text-sm text-slate-500">Expires</dt>
+            <dd class="text-sm text-slate-900">{{ certificate.not_after|date:"M d, Y" }}</dd>
+          </div>
+        </dl>
+      </div>
+
+      <form method="post">
+        {% csrf_token %}
+
+        <div class="mb-6">
+          <label for="reason" class="form-label">Revocation Reason</label>
+          <select name="reason" id="reason"
+                  class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+            {% for value, label in reasons %}
+            <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+          <p class="form-help">Select a reason for revoking this certificate.</p>
+        </div>
+
+        <div class="alert-warning mb-6">
+          <div class="flex">
+            <svg class="h-5 w-5 text-amber-500 mr-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+            </svg>
+            <div>
+              <h3 class="text-sm font-medium text-amber-800">Warning</h3>
+              <p class="text-sm text-amber-700 mt-1">
+                Once revoked, this certificate will no longer be trusted. This action is permanent and cannot be undone.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-4">
+          <button type="submit" class="btn-danger">
+            Revoke Certificate
+          </button>
+          <a href="{% url 'core:certificate_detail' pk=certificate.pk %}" class="btn-secondary">
+            Cancel
+          </a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

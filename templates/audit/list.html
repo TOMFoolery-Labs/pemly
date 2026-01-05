@@ -1,0 +1,127 @@
+{% extends 'base.html' %}
+
+{% block title %}Audit Log{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+  <h1 class="text-2xl font-semibold text-slate-900">Audit Log</h1>
+  <p class="mt-1 text-sm text-slate-500">Track all certificate authority activity</p>
+</div>
+
+<!-- Filters -->
+<div class="card mb-6">
+  <div class="card-body">
+    <form method="get" class="flex flex-wrap items-end gap-4">
+      <div class="w-48">
+        <label for="action" class="form-label">Action</label>
+        <select name="action" id="action"
+                class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+          <option value="">All Actions</option>
+          {% for value, label in actions %}
+          <option value="{{ value }}" {% if current_action == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="w-48">
+        <label for="resource_type" class="form-label">Resource Type</label>
+        <select name="resource_type" id="resource_type"
+                class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+          <option value="">All Types</option>
+          {% for rt in resource_types %}
+          <option value="{{ rt }}" {% if current_resource_type == rt %}selected{% endif %}>{{ rt }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn-secondary">
+        Filter
+      </button>
+      {% if current_action or current_resource_type %}
+      <a href="{% url 'core:audit_log' %}" class="text-sm text-slate-500 hover:text-slate-700">
+        Clear
+      </a>
+      {% endif %}
+    </form>
+  </div>
+</div>
+
+<!-- Audit Log List -->
+<div class="card">
+  <div class="overflow-x-auto">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Timestamp</th>
+          <th>Action</th>
+          <th>Resource</th>
+          <th>User</th>
+          <th>IP Address</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in logs %}
+        <tr>
+          <td class="text-sm text-slate-500">
+            {{ log.timestamp|date:"M d, Y H:i:s" }}
+          </td>
+          <td>
+            <span class="inline-flex items-center">
+              {% if log.action == 'ca_created' %}
+              <span class="badge-success">{{ log.get_action_display }}</span>
+              {% elif log.action == 'cert_issued' %}
+              <span class="badge-info">{{ log.get_action_display }}</span>
+              {% elif log.action == 'cert_revoked' %}
+              <span class="badge-danger">{{ log.get_action_display }}</span>
+              {% elif log.action == 'cert_downloaded' %}
+              <span class="badge-neutral">{{ log.get_action_display }}</span>
+              {% elif log.action == 'user_login' %}
+              <span class="badge-success">{{ log.get_action_display }}</span>
+              {% elif log.action == 'user_logout' %}
+              <span class="badge-neutral">{{ log.get_action_display }}</span>
+              {% else %}
+              <span class="badge-neutral">{{ log.get_action_display }}</span>
+              {% endif %}
+            </span>
+          </td>
+          <td>
+            <div class="text-sm font-medium text-slate-900">{{ log.resource_name|default:"-" }}</div>
+            <div class="text-xs text-slate-500">{{ log.resource_type }}</div>
+          </td>
+          <td class="text-sm text-slate-900">
+            {{ log.user.username|default:"System" }}
+          </td>
+          <td class="text-sm text-slate-500 font-mono">
+            {{ log.ip_address|default:"-" }}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="5" class="text-center py-8 text-slate-500">
+            No audit log entries found.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if page_obj.has_other_pages %}
+  <div class="card-footer">
+    <nav class="flex items-center justify-between">
+      <div class="text-sm text-slate-500">
+        Showing {{ page_obj.start_index }}-{{ page_obj.end_index }} of {{ page_obj.paginator.count }}
+      </div>
+      <div class="flex gap-2">
+        {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}{% if current_action %}&action={{ current_action }}{% endif %}{% if current_resource_type %}&resource_type={{ current_resource_type }}{% endif %}"
+           class="btn-secondary btn-sm">Previous</a>
+        {% endif %}
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}{% if current_action %}&action={{ current_action }}{% endif %}{% if current_resource_type %}&resource_type={{ current_resource_type }}{% endif %}"
+           class="btn-secondary btn-sm">Next</a>
+        {% endif %}
+      </div>
+    </nav>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

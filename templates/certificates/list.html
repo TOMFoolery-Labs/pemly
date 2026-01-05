@@ -1,0 +1,151 @@
+{% extends 'base.html' %}
+
+{% block title %}Certificates{% endblock %}
+
+{% block content %}
+<div class="mb-8 flex items-center justify-between">
+  <div>
+    <h1 class="text-2xl font-semibold text-slate-900">Certificates</h1>
+    <p class="mt-1 text-sm text-slate-500">Manage issued certificates</p>
+  </div>
+  <a href="{% url 'core:certificate_create' %}" class="btn-primary">
+    <svg class="h-4 w-4 mr-2 -ml-1" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+    </svg>
+    Issue Certificate
+  </a>
+</div>
+
+<!-- Filters -->
+<div class="card mb-6">
+  <div class="card-body">
+    <form method="get" class="flex flex-wrap items-end gap-4">
+      <div class="flex-1 min-w-[200px]">
+        <label for="search" class="form-label">Search</label>
+        <input type="text" name="search" id="search" value="{{ search }}"
+               class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg"
+               placeholder="Search by common name...">
+      </div>
+      <div class="w-40">
+        <label for="status" class="form-label">Status</label>
+        <select name="status" id="status"
+                class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+          <option value="">All Statuses</option>
+          {% for value, label in statuses %}
+          <option value="{{ value }}" {% if current_status == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="w-40">
+        <label for="type" class="form-label">Type</label>
+        <select name="type" id="type"
+                class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+          <option value="">All Types</option>
+          {% for value, label in types %}
+          <option value="{{ value }}" {% if current_type == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn-secondary">
+        Filter
+      </button>
+      {% if search or current_status or current_type %}
+      <a href="{% url 'core:certificate_list' %}" class="text-sm text-slate-500 hover:text-slate-700">
+        Clear
+      </a>
+      {% endif %}
+    </form>
+  </div>
+</div>
+
+<!-- Certificate List -->
+<div class="card">
+  <div class="overflow-x-auto">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Common Name</th>
+          <th>Type</th>
+          <th>Status</th>
+          <th>Expires</th>
+          <th>Created</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for cert in certificates %}
+        <tr>
+          <td>
+            <a href="{% url 'core:certificate_detail' pk=cert.pk %}" class="text-primary-600 hover:text-primary-700 font-medium">
+              {{ cert.common_name }}
+            </a>
+            {% if cert.san_dns_names %}
+            <p class="text-xs text-slate-500 mt-1">+{{ cert.san_dns_names|length }} SAN{% if cert.san_dns_names|length > 1 %}s{% endif %}</p>
+            {% endif %}
+          </td>
+          <td>{{ cert.get_type_display }}</td>
+          <td>
+            {% if cert.status == 'active' %}
+              {% if cert.is_expiring_soon %}
+              <span class="badge-warning">Expiring Soon</span>
+              {% else %}
+              <span class="badge-success">Active</span>
+              {% endif %}
+            {% elif cert.status == 'revoked' %}
+            <span class="badge-danger">Revoked</span>
+            {% elif cert.status == 'expired' %}
+            <span class="badge-neutral">Expired</span>
+            {% endif %}
+          </td>
+          <td class="text-sm text-slate-500">
+            {{ cert.not_after|date:"M d, Y" }}
+            {% if cert.days_until_expiry is not None %}
+            <br><span class="text-xs">{{ cert.days_until_expiry }} days</span>
+            {% endif %}
+          </td>
+          <td class="text-sm text-slate-500">
+            {{ cert.created_at|date:"M d, Y" }}
+          </td>
+          <td class="text-right">
+            <a href="{% url 'core:certificate_detail' pk=cert.pk %}" class="text-sm text-primary-600 hover:text-primary-700">
+              View
+            </a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="6" class="text-center py-8 text-slate-500">
+            {% if search or current_status or current_type %}
+            No certificates match your filters.
+            {% else %}
+            No certificates issued yet.
+            <a href="{% url 'core:certificate_create' %}" class="text-primary-600 hover:underline">Issue your first certificate</a>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if page_obj.has_other_pages %}
+  <div class="card-footer">
+    <nav class="flex items-center justify-between">
+      <div class="text-sm text-slate-500">
+        Showing {{ page_obj.start_index }}-{{ page_obj.end_index }} of {{ page_obj.paginator.count }}
+      </div>
+      <div class="flex gap-2">
+        {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_type %}&type={{ current_type }}{% endif %}"
+           class="btn-secondary btn-sm">Previous</a>
+        {% endif %}
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_type %}&type={{ current_type }}{% endif %}"
+           class="btn-secondary btn-sm">Next</a>
+        {% endif %}
+      </div>
+    </nav>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

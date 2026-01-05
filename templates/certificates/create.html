@@ -1,0 +1,175 @@
+{% extends 'base.html' %}
+
+{% block title %}Issue Certificate{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+  <h1 class="text-2xl font-semibold text-slate-900">Issue Certificate</h1>
+  <p class="mt-1 text-sm text-slate-500">Create a new certificate signed by {{ ca.name }}</p>
+</div>
+
+<form method="post" class="max-w-3xl">
+  {% csrf_token %}
+
+  <div class="card mb-6">
+    <div class="card-header">
+      <h2 class="text-lg font-medium text-slate-900">Generation Method</h2>
+    </div>
+    <div class="card-body">
+      <div class="space-y-4">
+        {% for value, label in form.generation_method.field.choices %}
+        <label class="flex items-center">
+          <input type="radio" name="generation_method" value="{{ value }}"
+                 {% if form.generation_method.value == value or forloop.first and not form.generation_method.value %}checked{% endif %}
+                 class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-slate-300"
+                 onchange="toggleCSRField()">
+          <span class="ml-3 text-sm text-slate-900">{{ label }}</span>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="card mb-6">
+    <div class="card-header">
+      <h2 class="text-lg font-medium text-slate-900">Certificate Details</h2>
+    </div>
+    <div class="card-body space-y-6">
+      <!-- Certificate Type -->
+      <div>
+        <label for="id_certificate_type" class="form-label">Certificate Type</label>
+        <select name="certificate_type" id="id_certificate_type"
+                class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+          {% for value, label in form.certificate_type.field.choices %}
+          <option value="{{ value }}" {% if form.certificate_type.value == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+        <p class="form-help">{{ form.certificate_type.help_text }}</p>
+      </div>
+
+      <!-- Common Name -->
+      <div>
+        <label for="id_common_name" class="form-label">Common Name</label>
+        <input type="text" name="common_name" id="id_common_name" required
+               class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg"
+               placeholder="www.example.com"
+               value="{{ form.common_name.value|default:'' }}">
+        <p class="form-help">{{ form.common_name.help_text }}</p>
+        {% if form.common_name.errors %}<p class="form-error">{{ form.common_name.errors.0 }}</p>{% endif %}
+      </div>
+
+      <!-- Organization -->
+      <div>
+        <label for="id_organization" class="form-label">Organization</label>
+        <input type="text" name="organization" id="id_organization"
+               class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg"
+               placeholder="{{ ca.organization }}"
+               value="{{ form.organization.value|default:'' }}">
+        <p class="form-help">{{ form.organization.help_text }}</p>
+      </div>
+
+      <!-- Subject Alternative Names -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <label for="id_san_dns_names" class="form-label">DNS Names (SANs)</label>
+          <textarea name="san_dns_names" id="id_san_dns_names" rows="3"
+                    class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg"
+                    placeholder="api.example.com&#10;mail.example.com">{{ form.san_dns_names.value|default:'' }}</textarea>
+          <p class="form-help">{{ form.san_dns_names.help_text }}</p>
+        </div>
+        <div>
+          <label for="id_san_ip_addresses" class="form-label">IP Addresses</label>
+          <textarea name="san_ip_addresses" id="id_san_ip_addresses" rows="3"
+                    class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg"
+                    placeholder="192.168.1.1&#10;10.0.0.1">{{ form.san_ip_addresses.value|default:'' }}</textarea>
+          <p class="form-help">{{ form.san_ip_addresses.help_text }}</p>
+        </div>
+      </div>
+
+      <!-- Validity -->
+      <div>
+        <label for="id_validity_days" class="form-label">Validity (Days)</label>
+        <input type="number" name="validity_days" id="id_validity_days" min="1" max="825" required
+               class="form-input mt-1 block w-48 px-3 py-2 border border-slate-300 rounded-lg"
+               value="{{ form.validity_days.value|default:365 }}">
+        <p class="form-help">{{ form.validity_days.help_text }}</p>
+        {% if form.validity_days.errors %}<p class="form-error">{{ form.validity_days.errors.0 }}</p>{% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Key Configuration (for server-side generation) -->
+  <div id="key-config" class="card mb-6">
+    <div class="card-header">
+      <h2 class="text-lg font-medium text-slate-900">Key Configuration</h2>
+    </div>
+    <div class="card-body">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <label for="id_key_algorithm" class="form-label">Algorithm</label>
+          <select name="key_algorithm" id="id_key_algorithm"
+                  class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+            {% for value, label in form.key_algorithm.field.choices %}
+            <option value="{{ value }}" {% if form.key_algorithm.value == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label for="id_key_size" class="form-label">Key Size</label>
+          <select name="key_size" id="id_key_size"
+                  class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+            {% for value, label in form.key_size.field.choices %}
+            <option value="{{ value }}" {% if form.key_size.value|stringformat:"s" == value|stringformat:"s" %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CSR Input (for CSR-based generation) -->
+  <div id="csr-input" class="card mb-6" style="display: none;">
+    <div class="card-header">
+      <h2 class="text-lg font-medium text-slate-900">Certificate Signing Request (CSR)</h2>
+    </div>
+    <div class="card-body">
+      <div>
+        <label for="id_csr_pem" class="form-label">CSR (PEM format)</label>
+        <textarea name="csr_pem" id="id_csr_pem" rows="12"
+                  class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg font-mono text-sm"
+                  placeholder="-----BEGIN CERTIFICATE REQUEST-----&#10;...&#10;-----END CERTIFICATE REQUEST-----">{{ form.csr_pem.value|default:'' }}</textarea>
+        <p class="form-help">{{ form.csr_pem.help_text }}</p>
+        {% if form.csr_pem.errors %}<p class="form-error">{{ form.csr_pem.errors.0 }}</p>{% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="flex items-center gap-4">
+    <button type="submit" class="btn-primary">
+      Issue Certificate
+    </button>
+    <a href="{% url 'core:certificate_list' %}" class="btn-secondary">
+      Cancel
+    </a>
+  </div>
+</form>
+
+<script>
+function toggleCSRField() {
+  const method = document.querySelector('input[name="generation_method"]:checked').value;
+  const keyConfig = document.getElementById('key-config');
+  const csrInput = document.getElementById('csr-input');
+
+  if (method === 'csr') {
+    keyConfig.style.display = 'none';
+    csrInput.style.display = 'block';
+  } else {
+    keyConfig.style.display = 'block';
+    csrInput.style.display = 'none';
+  }
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', toggleCSRField);
+</script>
+{% endblock %}

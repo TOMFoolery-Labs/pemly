@@ -1,0 +1,34 @@
+{% comment %}
+Form field component that renders a Django form field with proper styling.
+
+Usage:
+{% include 'components/form_field.html' with field=form.name %}
+{% endcomment %}
+
+<div class="{% if field.errors %}has-error{% endif %}">
+  <label for="{{ field.id_for_label }}" class="form-label">
+    {{ field.label }}
+    {% if field.field.required %}<span class="text-red-500">*</span>{% endif %}
+  </label>
+
+  {% if field.field.widget.input_type == 'checkbox' %}
+  <div class="flex items-center">
+    {{ field }}
+    <span class="ml-2 text-sm text-slate-600">{{ field.help_text }}</span>
+  </div>
+  {% elif field.field.widget.input_type == 'select' or field.field.widget.template_name == 'django/forms/widgets/select.html' %}
+  {{ field }}
+  {% else %}
+  {{ field }}
+  {% endif %}
+
+  {% if field.help_text and field.field.widget.input_type != 'checkbox' %}
+  <p class="form-help">{{ field.help_text }}</p>
+  {% endif %}
+
+  {% if field.errors %}
+  {% for error in field.errors %}
+  <p class="form-error">{{ error }}</p>
+  {% endfor %}
+  {% endif %}
+</div>

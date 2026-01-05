@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Sign In{% endblock %}
+
+{% block auth_content %}
+<div class="sm:mx-auto sm:w-full sm:max-w-md">
+  <div class="text-center">
+    <h1 class="text-7xl font-bold text-slate-900 tracking-wide">PEMLY</h1>
+    <p class="mt-2 text-sm text-slate-600">Certificate Manager</p>
+  </div>
+
+  <div class="mt-8 bg-white py-8 px-6 shadow-lg rounded-xl sm:px-10">
+    <h2 class="text-xl font-semibold text-slate-900 mb-6">Sign in to your account</h2>
+
+    {% if form.non_field_errors %}
+    <div class="alert-danger mb-6">
+      {% for error in form.non_field_errors %}
+      <p>{{ error }}</p>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <form method="post" class="space-y-6">
+      {% csrf_token %}
+
+      <div>
+        <label for="id_username" class="form-label">Username</label>
+        <input
+          type="text"
+          name="username"
+          id="id_username"
+          autocomplete="username"
+          required
+          class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+          {% if form.username.value %}value="{{ form.username.value }}"{% endif %}
+        >
+        {% if form.username.errors %}
+        <p class="form-error">{{ form.username.errors.0 }}</p>
+        {% endif %}
+      </div>
+
+      <div>
+        <label for="id_password" class="form-label">Password</label>
+        <input
+          type="password"
+          name="password"
+          id="id_password"
+          autocomplete="current-password"
+          required
+          class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+        >
+        {% if form.password.errors %}
+        <p class="form-error">{{ form.password.errors.0 }}</p>
+        {% endif %}
+      </div>
+
+      <button type="submit" class="btn-primary w-full py-2.5">
+        Sign in
+      </button>
+    </form>
+  </div>
+
+  <p class="mt-6 text-center text-xs text-slate-500">
+    Certificate Authority Management System
+  </p>
+</div>
+{% endblock %}

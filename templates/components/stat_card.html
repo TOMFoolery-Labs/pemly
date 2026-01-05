@@ -1,0 +1,23 @@
+{% comment %}
+Stat card component for dashboard metrics.
+
+Usage:
+{% include 'components/stat_card.html' with label="Total Certificates" value="42" change="+5" change_type="positive" %}
+{% endcomment %}
+
+<div class="card">
+  <div class="card-body">
+    <dt class="text-sm font-medium text-slate-500 truncate">{{ label }}</dt>
+    <dd class="mt-2 flex items-baseline gap-x-2">
+      <span class="text-3xl font-semibold tracking-tight text-slate-900">{{ value }}</span>
+      {% if change %}
+      <span class="text-sm font-medium {% if change_type == 'positive' %}text-green-600{% elif change_type == 'negative' %}text-red-600{% else %}text-slate-500{% endif %}">
+        {{ change }}
+      </span>
+      {% endif %}
+    </dd>
+    {% if description %}
+    <p class="mt-2 text-sm text-slate-500">{{ description }}</p>
+    {% endif %}
+  </div>
+</div>

@@ -1,0 +1,163 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+  <h1 class="text-2xl font-semibold text-slate-900">Dashboard</h1>
+  <p class="mt-1 text-sm text-slate-500">Certificate Authority overview and quick actions</p>
+</div>
+
+<!-- CA Status Card -->
+{% if ca %}
+<div class="card mb-8">
+  <div class="card-body">
+    <div class="flex items-center justify-between">
+      <div>
+        <h2 class="text-lg font-medium text-slate-900">{{ ca.name }}</h2>
+        <p class="text-sm text-slate-500">{{ ca.common_name }}</p>
+      </div>
+      <div class="text-right">
+        {% if ca.is_expired %}
+        <span class="badge-danger">Expired</span>
+        {% elif ca.days_until_expiry <= 30 %}
+        <span class="badge-warning">Expires in {{ ca.days_until_expiry }} days</span>
+        {% else %}
+        <span class="badge-success">Active</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="mt-4 grid grid-cols-2 gap-4 text-sm">
+      <div>
+        <span class="text-slate-500">Organization:</span>
+        <span class="ml-2 text-slate-900">{{ ca.organization }}</span>
+      </div>
+      <div>
+        <span class="text-slate-500">Valid Until:</span>
+        <span class="ml-2 text-slate-900">{{ ca.not_after|date:"M d, Y" }}</span>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Stats Grid -->
+<div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+  <div class="card">
+    <div class="card-body">
+      <dt class="text-sm font-medium text-slate-500">Total Certificates</dt>
+      <dd class="mt-2 text-3xl font-semibold text-slate-900">{{ total_certificates|default:0 }}</dd>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      <dt class="text-sm font-medium text-slate-500">Active</dt>
+      <dd class="mt-2 text-3xl font-semibold text-green-600">{{ active_certificates|default:0 }}</dd>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      <dt class="text-sm font-medium text-slate-500">Expiring Soon</dt>
+      <dd class="mt-2 text-3xl font-semibold text-amber-600">{{ expiring_soon|default:0 }}</dd>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      <dt class="text-sm font-medium text-slate-500">Revoked</dt>
+      <dd class="mt-2 text-3xl font-semibold text-red-600">{{ revoked_certificates|default:0 }}</dd>
+    </div>
+  </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="mb-8">
+  <h2 class="text-lg font-medium text-slate-900 mb-4">Quick Actions</h2>
+  <div class="flex gap-4">
+    <a href="{% url 'core:certificate_create' %}" class="btn-primary">
+      <svg class="h-4 w-4 mr-2 -ml-1" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+      </svg>
+      Issue Certificate
+    </a>
+    <a href="{% url 'core:certificate_list' %}" class="btn-secondary">
+      View All Certificates
+    </a>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+  <!-- Recent Certificates -->
+  <div class="card">
+    <div class="card-header">
+      <h3 class="text-lg font-medium text-slate-900">Recent Certificates</h3>
+    </div>
+    <div class="card-body p-0">
+      {% if recent_certificates %}
+      <ul class="divide-y divide-slate-200">
+        {% for cert in recent_certificates %}
+        <li class="px-6 py-4 hover:bg-slate-50">
+          <a href="{% url 'core:certificate_detail' pk=cert.pk %}" class="block">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium text-slate-900">{{ cert.common_name }}</p>
+                <p class="text-sm text-slate-500">{{ cert.get_type_display }}</p>
+              </div>
+              <div>
+                {% if cert.status == 'active' %}
+                <span class="badge-success">Active</span>
+                {% elif cert.status == 'revoked' %}
+                <span class="badge-danger">Revoked</span>
+                {% else %}
+                <span class="badge-neutral">{{ cert.get_status_display }}</span>
+                {% endif %}
+              </div>
+            </div>
+          </a>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="px-6 py-8 text-center text-sm text-slate-500">
+        No certificates issued yet.
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Recent Activity -->
+  <div class="card">
+    <div class="card-header">
+      <h3 class="text-lg font-medium text-slate-900">Recent Activity</h3>
+    </div>
+    <div class="card-body p-0">
+      {% if recent_logs %}
+      <ul class="divide-y divide-slate-200">
+        {% for log in recent_logs %}
+        <li class="px-6 py-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm text-slate-900">{{ log.get_action_display }}</p>
+              <p class="text-sm text-slate-500">{{ log.resource_name }}</p>
+            </div>
+            <div class="text-right">
+              <p class="text-xs text-slate-500">{{ log.timestamp|timesince }} ago</p>
+              {% if log.user %}
+              <p class="text-xs text-slate-400">by {{ log.user.username }}</p>
+              {% endif %}
+            </div>
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="px-6 py-8 text-center text-sm text-slate-500">
+        No recent activity.
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
