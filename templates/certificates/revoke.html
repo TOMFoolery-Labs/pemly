@@ -67,7 +67,7 @@
         </div>
 
         <div class="flex items-center gap-4">
-          <button type="submit" class="btn-danger">
+          <button type="submit" class="btn-danger" data-loading-text="Revoking...">
             Revoke Certificate
           </button>
           <a href="{% url 'core:certificate_detail' pk=certificate.pk %}" class="btn-secondary">
