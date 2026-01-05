@@ -1,6 +1,7 @@
 import uuid
 
 from cryptography.fernet import Fernet
+from cryptography.hazmat.primitives import serialization
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.db import models
@@ -79,6 +80,12 @@ class CertificateAuthority(models.Model):
     # Status
     is_active = models.BooleanField(default=True)
 
+    # CRL cache
+    crl_pem = models.TextField(blank=True, help_text="Cached CRL in PEM format")
+    crl_der = models.BinaryField(blank=True, null=True, help_text="Cached CRL in DER format")
+    crl_generated_at = models.DateTimeField(null=True, blank=True)
+    crl_next_update = models.DateTimeField(null=True, blank=True)
+
     # Audit fields
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(
@@ -125,6 +132,78 @@ class CertificateAuthority(models.Model):
             return None
         delta = self.not_after - timezone.now()
         return max(0, delta.days)
+
+    @property
+    def crl_cache_valid(self) -> bool:
+        """Check if the cached CRL is still valid."""
+        if not self.crl_pem or not self.crl_generated_at:
+            return False
+        # CRL is cached for 6 hours
+        cache_duration = timezone.timedelta(hours=6)
+        return timezone.now() < self.crl_generated_at + cache_duration
+
+    def refresh_crl(self, force: bool = False) -> None:
+        """
+        Generate a new CRL using the cryptography library.
+
+        Args:
+            force: If True, refresh even if cache is valid
+        """
+        if not force and self.crl_cache_valid:
+            return
+
+        from cryptography import x509
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.serialization import load_pem_private_key
+        from datetime import datetime, timedelta
+        import datetime as dt
+
+        # Load CA certificate and private key
+        ca_cert = x509.load_pem_x509_certificate(self.certificate_pem.encode())
+        ca_key = load_pem_private_key(
+            self.get_private_key().encode(),
+            password=None
+        )
+
+        # Build CRL
+        now = datetime.now(dt.timezone.utc)
+        next_update = now + timedelta(hours=24)
+
+        builder = x509.CertificateRevocationListBuilder()
+        builder = builder.issuer_name(ca_cert.subject)
+        builder = builder.last_update(now)
+        builder = builder.next_update(next_update)
+
+        # Add all revoked certificates
+        from core.models import Certificate, CertificateStatus
+        revoked_certs = Certificate.objects.filter(
+            ca=self,
+            status=CertificateStatus.REVOKED
+        ).exclude(serial_number='')
+
+        for cert in revoked_certs:
+            try:
+                serial = int(cert.serial_number, 16)
+                revoked_cert = (
+                    x509.RevokedCertificateBuilder()
+                    .serial_number(serial)
+                    .revocation_date(cert.revoked_at)
+                    .build()
+                )
+                builder = builder.add_revoked_certificate(revoked_cert)
+            except (ValueError, TypeError):
+                # Skip certificates with invalid serial numbers
+                continue
+
+        # Sign the CRL
+        crl = builder.sign(ca_key, hashes.SHA256())
+
+        # Store in both formats
+        self.crl_pem = crl.public_bytes(serialization.Encoding.PEM).decode()
+        self.crl_der = crl.public_bytes(serialization.Encoding.DER)
+        self.crl_generated_at = timezone.now()
+        self.crl_next_update = next_update
+        self.save(update_fields=['crl_pem', 'crl_der', 'crl_generated_at', 'crl_next_update'])
 
 
 class Certificate(models.Model):

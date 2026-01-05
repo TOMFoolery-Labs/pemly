@@ -230,3 +230,44 @@ class CADownloadView(LoginRequiredMixin, View):
         response = HttpResponse(ca.certificate_pem, content_type='application/x-pem-file')
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
+
+
+class CRLView(View):
+    """
+    Public endpoint to serve the Certificate Revocation List.
+
+    No authentication required - CRLs are public by design.
+    Returns DER-encoded CRL with standard content-type.
+    """
+
+    def get(self, request):
+        ca = CertificateAuthority.objects.filter(is_active=True).first()
+        if not ca:
+            return HttpResponse("No CA configured", status=404)
+
+        try:
+            # Refresh CRL if cache is invalid
+            if not ca.crl_cache_valid:
+                ca.refresh_crl()
+
+            # Prefer DER format (standard for CRL distribution)
+            if ca.crl_der:
+                response = HttpResponse(
+                    bytes(ca.crl_der),
+                    content_type='application/pkix-crl'
+                )
+                response['Content-Disposition'] = 'inline; filename="ca.crl"'
+            else:
+                # Fall back to PEM if DER not available
+                response = HttpResponse(
+                    ca.crl_pem,
+                    content_type='application/x-pem-file'
+                )
+                response['Content-Disposition'] = 'inline; filename="ca.crl"'
+
+            # Cache headers
+            response['Cache-Control'] = 'public, max-age=3600'  # 1 hour client cache
+            return response
+
+        except Exception as e:
+            return HttpResponse(f"Error generating CRL: {e}", status=503)

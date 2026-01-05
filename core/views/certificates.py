@@ -331,6 +331,13 @@ class CertificateRevokeView(LoginRequiredMixin, View):
         # Revoke the certificate
         certificate.revoke(reason=reason)
 
+        # Refresh CRL to include the newly revoked certificate
+        try:
+            certificate.ca.refresh_crl(force=True)
+        except Exception:
+            # CRL refresh failure shouldn't block revocation
+            pass
+
         # Log the revocation
         AuditLog.log(
             action=AuditLog.Action.CERT_REVOKED,

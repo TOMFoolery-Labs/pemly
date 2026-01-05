@@ -1,5 +1,5 @@
 from .dashboard import DashboardView
-from .ca import CASetupView, CADetailView, CADownloadView
+from .ca import CASetupView, CADetailView, CADownloadView, CRLView
 from .certificates import (
     CertificateListView,
     CertificateCreateView,
@@ -14,6 +14,7 @@ __all__ = [
     'CASetupView',
     'CADetailView',
     'CADownloadView',
+    'CRLView',
     'CertificateListView',
     'CertificateCreateView',
     'CertificateDetailView',

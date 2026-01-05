@@ -12,6 +12,7 @@ urlpatterns = [
     path('ca/setup/', views.CASetupView.as_view(), name='ca_setup'),
     path('ca/', views.CADetailView.as_view(), name='ca_detail'),
     path('ca/download/', views.CADownloadView.as_view(), name='ca_download'),
+    path('ca/crl/', views.CRLView.as_view(), name='ca_crl'),
 
     # Certificates
     path('certificates/', views.CertificateListView.as_view(), name='certificate_list'),
