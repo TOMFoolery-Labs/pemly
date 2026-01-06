@@ -81,10 +81,6 @@ class CASetupView(LoginRequiredMixin, View):
     template_name = 'ca/setup.html'
 
     def get(self, request):
-        # Redirect to dashboard if CA already exists
-        if CertificateAuthority.objects.filter(is_active=True).exists():
-            return redirect('core:dashboard')
-
         form = CASetupForm()
         return render(request, self.template_name, {'form': form})
 
