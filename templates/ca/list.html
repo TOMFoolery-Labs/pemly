@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+
+{% block title %}Certificate Authorities{% endblock %}
+
+{% block content %}
+<div class="mb-8 flex items-center justify-between">
+  <div>
+    <h1 class="text-2xl font-semibold text-slate-900">Certificate Authorities</h1>
+    <p class="mt-1 text-sm text-slate-500">Manage your CA hierarchy</p>
+  </div>
+  {% if ca_tree %}
+  <a href="{% url 'core:ca_setup' %}" class="btn-secondary">
+    Add Root CA
+  </a>
+  {% endif %}
+</div>
+
+{% if ca_tree %}
+<div class="space-y-4">
+  {% include 'ca/_tree.html' with nodes=ca_tree depth=0 %}
+</div>
+{% else %}
+<div class="text-center py-12 bg-white rounded-lg border border-slate-200">
+  <svg class="mx-auto h-12 w-12 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+  </svg>
+  <h3 class="mt-2 text-sm font-medium text-slate-900">No Certificate Authority</h3>
+  <p class="mt-1 text-sm text-slate-500">Get started by creating a root CA.</p>
+  <div class="mt-6">
+    <a href="{% url 'core:ca_setup' %}" class="btn-primary">
+      Create Root CA
+    </a>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

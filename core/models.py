@@ -39,11 +39,26 @@ class RevocationReason(models.TextChoices):
     PRIVILEGE_WITHDRAWN = 'privilege_withdrawn', 'Privilege Withdrawn'
 
 
+class CAType(models.TextChoices):
+    """Types of Certificate Authorities."""
+    ROOT = 'root', 'Root CA'
+    INTERMEDIATE = 'intermediate', 'Intermediate CA'
+
+
+class CAStatus(models.TextChoices):
+    """CA operational status."""
+    ACTIVE = 'active', 'Active'
+    AIR_GAPPED = 'air_gapped', 'Air-Gapped (Key Removed)'
+    PENDING = 'pending', 'Pending (Awaiting Certificate)'
+    REVOKED = 'revoked', 'Revoked'
+    EXPIRED = 'expired', 'Expired'
+
+
 class CertificateAuthority(models.Model):
     """
-    Root Certificate Authority for signing certificates.
+    Certificate Authority for signing certificates.
 
-    Only one CA should be active per deployment (enforced by application logic).
+    Supports hierarchical CA structure: Root CA → Intermediate CA(s) → Certificates.
     Private key is encrypted at rest using Fernet.
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -54,6 +69,32 @@ class CertificateAuthority(models.Model):
     country = models.CharField(max_length=2, help_text="Two-letter country code")
     state = models.CharField(max_length=255)
     locality = models.CharField(max_length=255)
+
+    # CA hierarchy
+    ca_type = models.CharField(
+        max_length=20,
+        choices=CAType.choices,
+        default=CAType.ROOT,
+        help_text="Whether this is a root or intermediate CA"
+    )
+    parent = models.ForeignKey(
+        'self',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='children',
+        help_text="Parent CA that signed this CA's certificate"
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=CAStatus.choices,
+        default=CAStatus.ACTIVE
+    )
+    path_length = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Maximum CA path length constraint (0 = can only sign end-entity certs)"
+    )
 
     # Key configuration
     key_algorithm = models.CharField(
@@ -71,14 +112,30 @@ class CertificateAuthority(models.Model):
     certificate_pem = models.TextField(blank=True)
     private_key_pem_encrypted = models.TextField(blank=True)
     public_key_pem = models.TextField(blank=True)
+    csr_pem = models.TextField(blank=True, help_text="CSR for pending intermediates awaiting external signing")
     serial_number = models.CharField(max_length=255, blank=True)
 
     # Validity dates
     not_before = models.DateTimeField(null=True, blank=True)
     not_after = models.DateTimeField(null=True, blank=True)
 
-    # Status
+    # Legacy status field (kept for backwards compatibility)
     is_active = models.BooleanField(default=True)
+
+    # Air-gap tracking
+    key_removed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When the private key was removed for air-gapping"
+    )
+    key_removed_by = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='airgapped_cas',
+        help_text="User who removed the private key"
+    )
 
     # CRL cache
     crl_pem = models.TextField(blank=True, help_text="Cached CRL in PEM format")
@@ -132,6 +189,121 @@ class CertificateAuthority(models.Model):
             return None
         delta = self.not_after - timezone.now()
         return max(0, delta.days)
+
+    @property
+    def is_root(self) -> bool:
+        """Check if this is a root CA."""
+        return self.ca_type == CAType.ROOT
+
+    @property
+    def is_intermediate(self) -> bool:
+        """Check if this is an intermediate CA."""
+        return self.ca_type == CAType.INTERMEDIATE
+
+    @property
+    def is_air_gapped(self) -> bool:
+        """Check if private key has been removed."""
+        return self.status == CAStatus.AIR_GAPPED
+
+    @property
+    def can_sign(self) -> bool:
+        """Check if this CA can sign certificates."""
+        return (
+            self.status == CAStatus.ACTIVE and
+            bool(self.private_key_pem_encrypted) and
+            not self.is_expired
+        )
+
+    @property
+    def has_private_key(self) -> bool:
+        """Check if private key is available."""
+        return bool(self.private_key_pem_encrypted)
+
+    @property
+    def depth(self) -> int:
+        """Return the depth in the CA hierarchy (root = 0)."""
+        if self.parent is None:
+            return 0
+        return self.parent.depth + 1
+
+    def get_chain(self) -> list['CertificateAuthority']:
+        """Return the full certificate chain from this CA up to root."""
+        chain = [self]
+        current = self
+        while current.parent:
+            chain.append(current.parent)
+            current = current.parent
+        return chain
+
+    def get_chain_pem(self) -> str:
+        """Return concatenated PEM certificates for the full chain."""
+        return '\n'.join(ca.certificate_pem for ca in self.get_chain() if ca.certificate_pem)
+
+    def remove_private_key(self, user: User) -> str:
+        """
+        Remove and return the private key for air-gapping.
+
+        Args:
+            user: User performing the operation
+
+        Returns:
+            The plaintext private key (for download)
+
+        Raises:
+            ValueError: If no private key exists
+        """
+        if not self.private_key_pem_encrypted:
+            raise ValueError("No private key to remove")
+
+        private_key = self.get_private_key()
+        self.private_key_pem_encrypted = ''
+        self.status = CAStatus.AIR_GAPPED
+        self.key_removed_at = timezone.now()
+        self.key_removed_by = user
+        self.save()
+        return private_key
+
+    def restore_private_key(self, private_key: str, user: User) -> None:
+        """
+        Restore a private key (for signing new intermediates).
+
+        Args:
+            private_key: The plaintext private key PEM
+            user: User performing the operation
+
+        Raises:
+            ValueError: If key doesn't match certificate
+        """
+        # Validate the key matches the certificate's public key
+        from cryptography.hazmat.primitives.serialization import load_pem_private_key
+        from cryptography import x509
+
+        try:
+            loaded_key = load_pem_private_key(private_key.encode(), password=None)
+            cert = x509.load_pem_x509_certificate(self.certificate_pem.encode())
+
+            # Compare public keys
+            key_public = loaded_key.public_key()
+            cert_public = cert.public_key()
+
+            # Serialize both to compare
+            from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+            key_pub_bytes = key_public.public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo)
+            cert_pub_bytes = cert_public.public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo)
+
+            if key_pub_bytes != cert_pub_bytes:
+                raise ValueError("Private key does not match certificate")
+
+        except Exception as e:
+            if "does not match" in str(e):
+                raise
+            raise ValueError(f"Invalid private key: {e}")
+
+        self.set_private_key(private_key)
+        self.status = CAStatus.ACTIVE
+        self.key_removed_at = None
+        self.key_removed_by = None
+        self.save()
 
     @property
     def crl_cache_valid(self) -> bool:
@@ -327,6 +499,12 @@ class Certificate(models.Model):
         days = self.days_until_expiry
         return days is not None and days <= 30
 
+    def get_chain_pem(self) -> str:
+        """Return full certificate chain: cert → intermediate(s) → root."""
+        chain_parts = [self.certificate_pem]
+        chain_parts.append(self.ca.get_chain_pem())
+        return '\n'.join(part for part in chain_parts if part)
+
     def revoke(self, reason: str = RevocationReason.UNSPECIFIED) -> None:
         """Mark the certificate as revoked."""
         self.status = CertificateStatus.REVOKED
@@ -345,6 +523,12 @@ class AuditLog(models.Model):
     class Action(models.TextChoices):
         CA_CREATED = 'ca_created', 'CA Created'
         CA_UPDATED = 'ca_updated', 'CA Updated'
+        INTERMEDIATE_CA_CREATED = 'intermediate_created', 'Intermediate CA Created'
+        CA_KEY_EXPORTED = 'ca_key_exported', 'CA Key Exported'
+        CA_KEY_REMOVED = 'ca_key_removed', 'CA Key Removed (Air-Gapped)'
+        CA_KEY_RESTORED = 'ca_key_restored', 'CA Key Restored'
+        CA_CSR_GENERATED = 'ca_csr_generated', 'CA CSR Generated'
+        CA_CERT_IMPORTED = 'ca_cert_imported', 'CA Certificate Imported'
         CERT_ISSUED = 'cert_issued', 'Certificate Issued'
         CERT_REVOKED = 'cert_revoked', 'Certificate Revoked'
         CERT_DOWNLOADED = 'cert_downloaded', 'Certificate Downloaded'

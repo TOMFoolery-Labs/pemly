@@ -11,6 +11,7 @@ from django.views.generic import DetailView, ListView
 
 from core.models import (
     AuditLog,
+    CAStatus,
     Certificate,
     CertificateAuthority,
     CertificateStatus,
@@ -22,6 +23,15 @@ from core.services import CFSSLClient, CFSSLError
 from core.services.cfssl import CertificateRequest
 
 
+def get_signing_cas():
+    """Get CAs that can sign certificates (have private key and are active)."""
+    return CertificateAuthority.objects.filter(
+        status=CAStatus.ACTIVE,
+    ).exclude(
+        private_key_pem_encrypted=''
+    ).order_by('ca_type', 'name')
+
+
 class CertificateCreateForm(forms.Form):
     """Form for creating a new certificate."""
 
@@ -29,6 +39,11 @@ class CertificateCreateForm(forms.Form):
         ('generate', 'Generate key pair on server'),
         ('csr', 'Sign existing CSR'),
     ]
+
+    # CA selection
+    signing_ca = forms.UUIDField(
+        help_text="Select which CA will sign this certificate"
+    )
 
     generation_method = forms.ChoiceField(
         choices=GENERATION_CHOICES,
@@ -169,23 +184,48 @@ class CertificateCreateView(LoginRequiredMixin, View):
     template_name = 'certificates/create.html'
 
     def get(self, request):
-        ca = CertificateAuthority.objects.filter(is_active=True).first()
-        if not ca:
-            messages.warning(request, "Please set up a Certificate Authority first.")
+        signing_cas = get_signing_cas()
+        if not signing_cas.exists():
+            messages.warning(request, "No Certificate Authority available for signing. Please set up a CA first.")
             return redirect('core:ca_setup')
 
-        form = CertificateCreateForm(initial={'organization': ca.organization})
-        return render(request, self.template_name, {'form': form, 'ca': ca})
+        # Default to first available CA (prefer intermediates over root)
+        default_ca = signing_cas.filter(ca_type='intermediate').first() or signing_cas.first()
+
+        form = CertificateCreateForm(initial={
+            'organization': default_ca.organization,
+            'signing_ca': default_ca.id,
+        })
+        return render(request, self.template_name, {
+            'form': form,
+            'signing_cas': signing_cas,
+            'selected_ca': default_ca,
+        })
 
     def post(self, request):
-        ca = CertificateAuthority.objects.filter(is_active=True).first()
-        if not ca:
+        signing_cas = get_signing_cas()
+        if not signing_cas.exists():
             return redirect('core:ca_setup')
 
         form = CertificateCreateForm(request.POST)
 
         if form.is_valid():
             try:
+                # Get the selected CA
+                ca = get_object_or_404(
+                    CertificateAuthority,
+                    pk=form.cleaned_data['signing_ca']
+                )
+
+                # Verify the CA can sign
+                if not ca.can_sign:
+                    messages.error(request, "Selected CA cannot sign certificates.")
+                    return render(request, self.template_name, {
+                        'form': form,
+                        'signing_cas': signing_cas,
+                        'selected_ca': ca,
+                    })
+
                 cfssl = CFSSLClient()
 
                 # Prepare hosts list
@@ -278,6 +318,8 @@ class CertificateCreateView(LoginRequiredMixin, View):
                         'validity_days': certificate.validity_days,
                         'san_dns_names': certificate.san_dns_names,
                         'san_ip_addresses': certificate.san_ip_addresses,
+                        'signing_ca': ca.name,
+                        'signing_ca_id': str(ca.id),
                     },
                     ip_address=request.META.get('REMOTE_ADDR'),
                     user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
@@ -291,7 +333,11 @@ class CertificateCreateView(LoginRequiredMixin, View):
             except Exception as e:
                 messages.error(request, f"An error occurred: {str(e)}")
 
-        return render(request, self.template_name, {'form': form, 'ca': ca})
+        return render(request, self.template_name, {
+            'form': form,
+            'signing_cas': signing_cas,
+            'selected_ca': signing_cas.first(),
+        })
 
 
 class CertificateDetailView(LoginRequiredMixin, DetailView):
@@ -389,14 +435,15 @@ class CertificateDownloadView(LoginRequiredMixin, View):
             filename = f"{filename_base}.key"
             content_type = 'application/x-pem-file'
         elif file_type == 'chain':
-            # Certificate + CA certificate
-            ca = certificate.ca
-            content = certificate.certificate_pem + '\n' + ca.certificate_pem
-            filename = f"{filename_base}-chain.crt"
+            # Full certificate chain: cert → intermediate(s) → root
+            content = certificate.get_chain_pem()
+            chain_depth = certificate.ca.depth + 2  # cert + CA chain
+            filename = f"{filename_base}-fullchain.crt"
             content_type = 'application/x-pem-file'
         elif file_type == 'ca':
-            content = certificate.ca.certificate_pem
-            filename = "ca.crt"
+            # Full CA chain from signing CA to root
+            content = certificate.ca.get_chain_pem()
+            filename = "ca-chain.crt"
             content_type = 'application/x-pem-file'
         else:
             messages.error(request, "Invalid file type.")

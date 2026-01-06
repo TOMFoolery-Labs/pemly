@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+
+{% block title %}Air-Gap CA{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+  <nav class="text-sm text-slate-500 mb-2">
+    <a href="{% url 'core:ca_list' %}" class="hover:text-slate-700">Certificate Authorities</a>
+    <span class="mx-2">/</span>
+    <a href="{% url 'core:ca_detail' pk=ca.pk %}" class="hover:text-slate-700">{{ ca.name }}</a>
+    <span class="mx-2">/</span>
+    <span class="text-slate-900">Air-Gap</span>
+  </nav>
+  <h1 class="text-2xl font-semibold text-slate-900">Air-Gap Certificate Authority</h1>
+  <p class="mt-1 text-sm text-slate-500">
+    Permanently remove the private key from <strong>{{ ca.name }}</strong>
+  </p>
+</div>
+
+<div class="max-w-2xl">
+  <!-- Warning -->
+  <div class="alert-warning mb-6">
+    <div class="flex">
+      <svg class="h-5 w-5 text-amber-500 mr-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+      </svg>
+      <div>
+        <h3 class="text-sm font-medium text-amber-800">This action is irreversible in this application</h3>
+        <div class="text-sm text-amber-700 mt-1">
+          <p>After removing the private key:</p>
+          <ul class="list-disc ml-5 mt-2 space-y-1">
+            <li>The CA will no longer be able to sign certificates directly</li>
+            <li>You must export and securely store the private key before removing it</li>
+            <li>To sign new intermediates, you'll need to use the CSR workflow or temporarily restore the key</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CA Info -->
+  <div class="card mb-6">
+    <div class="card-header">
+      <h2 class="text-lg font-medium text-slate-900">Certificate Authority</h2>
+    </div>
+    <div class="card-body">
+      <dl class="grid grid-cols-2 gap-4 text-sm">
+        <div>
+          <dt class="text-slate-500">Name</dt>
+          <dd class="font-medium text-slate-900">{{ ca.name }}</dd>
+        </div>
+        <div>
+          <dt class="text-slate-500">Type</dt>
+          <dd class="font-medium text-slate-900">{{ ca.get_ca_type_display }}</dd>
+        </div>
+        <div>
+          <dt class="text-slate-500">Common Name</dt>
+          <dd class="font-medium text-slate-900">{{ ca.common_name }}</dd>
+        </div>
+        <div>
+          <dt class="text-slate-500">Child CAs</dt>
+          <dd class="font-medium text-slate-900">{{ ca.children.count }}</dd>
+        </div>
+      </dl>
+    </div>
+  </div>
+
+  <!-- Steps -->
+  <div class="card mb-6">
+    <div class="card-header">
+      <h2 class="text-lg font-medium text-slate-900">Before You Continue</h2>
+    </div>
+    <div class="card-body">
+      <ol class="list-decimal ml-5 space-y-3 text-sm text-slate-700">
+        <li>
+          <strong>Export the private key</strong> and store it securely offline.
+          <a href="{% url 'core:ca_export_key' pk=ca.pk %}" class="text-blue-600 hover:text-blue-700 ml-1">
+            Download Private Key
+          </a>
+        </li>
+        <li>
+          <strong>Verify you have a backup</strong> of the private key in a secure location.
+        </li>
+        <li>
+          <strong>Confirm below</strong> by typing the CA name to remove the key.
+        </li>
+      </ol>
+    </div>
+  </div>
+
+  <!-- Confirmation Form -->
+  <form method="post">
+    {% csrf_token %}
+    <div class="card mb-6">
+      <div class="card-header">
+        <h2 class="text-lg font-medium text-slate-900">Confirm Key Removal</h2>
+      </div>
+      <div class="card-body">
+        <label for="confirm" class="form-label">
+          Type <strong class="text-red-600">{{ ca.name }}</strong> to confirm
+        </label>
+        <input type="text" name="confirm" id="confirm" required autocomplete="off"
+               class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg"
+               placeholder="Type the CA name exactly">
+      </div>
+    </div>
+
+    <div class="flex items-center justify-end gap-3">
+      <a href="{% url 'core:ca_detail' pk=ca.pk %}" class="btn-secondary">Cancel</a>
+      <button type="submit" class="btn-danger" data-loading-text="Removing Key...">
+        Remove Private Key
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}

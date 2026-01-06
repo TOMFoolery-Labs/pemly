@@ -1,0 +1,150 @@
+{% extends 'base.html' %}
+
+{% block title %}Create Intermediate CA{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+  <nav class="text-sm text-slate-500 mb-2">
+    <a href="{% url 'core:ca_list' %}" class="hover:text-slate-700">Certificate Authorities</a>
+    <span class="mx-2">/</span>
+    <a href="{% url 'core:ca_detail' pk=parent_ca.pk %}" class="hover:text-slate-700">{{ parent_ca.name }}</a>
+    <span class="mx-2">/</span>
+    <span class="text-slate-900">Create Intermediate</span>
+  </nav>
+  <h1 class="text-2xl font-semibold text-slate-900">Create Intermediate CA</h1>
+  <p class="mt-1 text-sm text-slate-500">
+    Create a new intermediate CA signed by <strong>{{ parent_ca.name }}</strong>
+  </p>
+</div>
+
+<form method="post" class="max-w-3xl">
+  {% csrf_token %}
+
+  <!-- Parent CA Info -->
+  <div class="card mb-6">
+    <div class="card-header">
+      <h2 class="text-lg font-medium text-slate-900">Parent CA</h2>
+    </div>
+    <div class="card-body">
+      <div class="flex items-center gap-3">
+        {% if parent_ca.is_root %}
+        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">Root</span>
+        {% else %}
+        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-800">Intermediate</span>
+        {% endif %}
+        <div>
+          <p class="font-medium text-slate-900">{{ parent_ca.name }}</p>
+          <p class="text-sm text-slate-500">{{ parent_ca.common_name }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CA Details -->
+  <div class="card mb-6">
+    <div class="card-header">
+      <h2 class="text-lg font-medium text-slate-900">Intermediate CA Details</h2>
+    </div>
+    <div class="card-body space-y-6">
+      <div>
+        <label for="id_name" class="form-label">Name</label>
+        <input type="text" name="name" id="id_name" value="{{ form.name.value|default:'' }}" required
+               class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+        <p class="form-help">A friendly name for this intermediate CA</p>
+      </div>
+
+      <div>
+        <label for="id_common_name" class="form-label">Common Name (CN)</label>
+        <input type="text" name="common_name" id="id_common_name" value="{{ form.common_name.value|default:'' }}" required
+               class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+        <p class="form-help">The CN for the intermediate CA certificate</p>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <div>
+          <label for="id_organization" class="form-label">Organization</label>
+          <input type="text" name="organization" id="id_organization" value="{{ form.organization.value|default:'' }}" required
+                 class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+        </div>
+        <div>
+          <label for="id_organizational_unit" class="form-label">Organizational Unit</label>
+          <input type="text" name="organizational_unit" id="id_organizational_unit" value="{{ form.organizational_unit.value|default:'' }}"
+                 class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <div>
+          <label for="id_country" class="form-label">Country</label>
+          <input type="text" name="country" id="id_country" value="{{ form.country.value|default:'' }}" maxlength="2" required
+                 class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+          <p class="form-help">Two-letter code</p>
+        </div>
+        <div>
+          <label for="id_state" class="form-label">State/Province</label>
+          <input type="text" name="state" id="id_state" value="{{ form.state.value|default:'' }}" required
+                 class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+        </div>
+        <div>
+          <label for="id_locality" class="form-label">City/Locality</label>
+          <input type="text" name="locality" id="id_locality" value="{{ form.locality.value|default:'' }}" required
+                 class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Key Configuration -->
+  <div class="card mb-6">
+    <div class="card-header">
+      <h2 class="text-lg font-medium text-slate-900">Key Configuration</h2>
+    </div>
+    <div class="card-body space-y-6">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <div>
+          <label for="id_key_algorithm" class="form-label">Key Algorithm</label>
+          <select name="key_algorithm" id="id_key_algorithm"
+                  class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+            <option value="rsa" {% if form.key_algorithm.value == 'rsa' %}selected{% endif %}>RSA</option>
+            <option value="ecdsa" {% if form.key_algorithm.value == 'ecdsa' %}selected{% endif %}>ECDSA</option>
+          </select>
+        </div>
+        <div>
+          <label for="id_key_size" class="form-label">Key Size</label>
+          <select name="key_size" id="id_key_size"
+                  class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+            <option value="2048">RSA 2048-bit</option>
+            <option value="4096" selected>RSA 4096-bit (Recommended)</option>
+            <option value="256">ECDSA P-256</option>
+            <option value="384">ECDSA P-384</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <div>
+          <label for="id_validity_years" class="form-label">Validity (Years)</label>
+          <input type="number" name="validity_years" id="id_validity_years" value="{{ form.validity_years.value|default:'5' }}"
+                 min="1" max="20" required
+                 class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+          <p class="form-help">Should be shorter than parent CA</p>
+        </div>
+        <div>
+          <label for="id_path_length" class="form-label">Path Length Constraint</label>
+          <input type="number" name="path_length" id="id_path_length" value="{{ form.path_length.value|default:'0' }}"
+                 min="0" max="5" required
+                 class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+          <p class="form-help">0 = can only sign end-entity certificates</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flex items-center justify-end gap-3">
+    <a href="{% url 'core:ca_detail' pk=parent_ca.pk %}" class="btn-secondary">Cancel</a>
+    <button type="submit" class="btn-primary" data-loading-text="Creating...">
+      Create Intermediate CA
+    </button>
+  </div>
+</form>
+{% endblock %}

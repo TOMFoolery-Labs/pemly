@@ -5,11 +5,38 @@
 {% block content %}
 <div class="mb-8">
   <h1 class="text-2xl font-semibold text-slate-900">Issue Certificate</h1>
-  <p class="mt-1 text-sm text-slate-500">Create a new certificate signed by {{ ca.name }}</p>
+  <p class="mt-1 text-sm text-slate-500">Create a new certificate signed by a Certificate Authority</p>
 </div>
 
 <form method="post" class="max-w-3xl">
   {% csrf_token %}
+
+  <!-- Signing CA Selection -->
+  <div class="card mb-6">
+    <div class="card-header">
+      <h2 class="text-lg font-medium text-slate-900">Signing Authority</h2>
+    </div>
+    <div class="card-body">
+      {% if signing_cas %}
+      <div>
+        <label for="id_signing_ca" class="form-label">Certificate Authority</label>
+        <select name="signing_ca" id="id_signing_ca" required
+                class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+          {% for signing_ca in signing_cas %}
+          <option value="{{ signing_ca.pk }}" {% if form.signing_ca.value|stringformat:"s" == signing_ca.pk|stringformat:"s" or selected_ca.pk == signing_ca.pk %}selected{% endif %}>
+            {{ signing_ca.name }}{% if signing_ca.is_root %} (Root){% else %} (Intermediate){% endif %}
+          </option>
+          {% endfor %}
+        </select>
+        <p class="form-help">Select which CA will sign this certificate</p>
+      </div>
+      {% else %}
+      <div class="alert-warning">
+        <p class="text-sm">No Certificate Authorities are available to sign certificates. Please ensure you have at least one active CA with a private key.</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
 
   <div class="card mb-6">
     <div class="card-header">

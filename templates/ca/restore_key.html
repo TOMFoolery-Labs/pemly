@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+
+{% block title %}Restore CA Key{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+  <nav class="text-sm text-slate-500 mb-2">
+    <a href="{% url 'core:ca_list' %}" class="hover:text-slate-700">Certificate Authorities</a>
+    <span class="mx-2">/</span>
+    <a href="{% url 'core:ca_detail' pk=ca.pk %}" class="hover:text-slate-700">{{ ca.name }}</a>
+    <span class="mx-2">/</span>
+    <span class="text-slate-900">Restore Key</span>
+  </nav>
+  <h1 class="text-2xl font-semibold text-slate-900">Restore Private Key</h1>
+  <p class="mt-1 text-sm text-slate-500">
+    Temporarily restore the private key for <strong>{{ ca.name }}</strong>
+  </p>
+</div>
+
+<div class="max-w-2xl">
+  <!-- Info -->
+  <div class="alert-info mb-6">
+    <div class="flex">
+      <svg class="h-5 w-5 text-blue-500 mr-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+      </svg>
+      <div>
+        <h3 class="text-sm font-medium text-blue-800">Temporary Key Restoration</h3>
+        <p class="text-sm text-blue-700 mt-1">
+          After restoring the key, you can create new intermediate CAs directly.
+          Remember to remove the key again when you're done to maintain the air-gap.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- CA Info -->
+  <div class="card mb-6">
+    <div class="card-header">
+      <h2 class="text-lg font-medium text-slate-900">Air-Gapped CA</h2>
+    </div>
+    <div class="card-body">
+      <dl class="grid grid-cols-2 gap-4 text-sm">
+        <div>
+          <dt class="text-slate-500">Name</dt>
+          <dd class="font-medium text-slate-900">{{ ca.name }}</dd>
+        </div>
+        <div>
+          <dt class="text-slate-500">Common Name</dt>
+          <dd class="font-medium text-slate-900">{{ ca.common_name }}</dd>
+        </div>
+        <div>
+          <dt class="text-slate-500">Air-Gapped On</dt>
+          <dd class="font-medium text-slate-900">{{ ca.key_removed_at|date:"M d, Y H:i" }}</dd>
+        </div>
+        <div>
+          <dt class="text-slate-500">Air-Gapped By</dt>
+          <dd class="font-medium text-slate-900">{{ ca.key_removed_by.username }}</dd>
+        </div>
+      </dl>
+    </div>
+  </div>
+
+  <!-- Restore Form -->
+  <form method="post">
+    {% csrf_token %}
+    <div class="card mb-6">
+      <div class="card-header">
+        <h2 class="text-lg font-medium text-slate-900">Private Key</h2>
+      </div>
+      <div class="card-body">
+        <p class="text-sm text-slate-600 mb-4">
+          Paste the PEM-encoded private key that was previously exported from this CA.
+          The key will be validated to ensure it matches the certificate.
+        </p>
+        <textarea name="private_key_pem" rows="12" required
+                  class="form-input block w-full px-3 py-2 border border-slate-300 rounded-lg font-mono text-sm"
+                  placeholder="-----BEGIN PRIVATE KEY-----
+...
+-----END PRIVATE KEY-----">{{ private_key_pem|default:'' }}</textarea>
+      </div>
+    </div>
+
+    <div class="flex items-center justify-end gap-3">
+      <a href="{% url 'core:ca_list' %}" class="btn-secondary">Cancel</a>
+      <button type="submit" class="btn-primary" data-loading-text="Validating...">
+        Restore Private Key
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}

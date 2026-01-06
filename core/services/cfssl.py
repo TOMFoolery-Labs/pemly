@@ -2,10 +2,16 @@
 CFSSL API Client
 
 Provides a Python interface to the CloudFlare CFSSL PKI toolkit API.
+Uses HTTP API for key generation and CLI for signing operations.
 """
 
+import json
 import logging
+import shutil
+import subprocess
+import tempfile
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import requests
@@ -65,6 +71,7 @@ class CFSSLClient:
     Client for CFSSL API communication.
 
     Provides methods to initialize CAs, generate keys, sign CSRs, and revoke certificates.
+    Uses HTTP API for key generation and CLI for signing (to support multiple CAs).
     """
 
     def __init__(self, base_url: str | None = None, auth_key: str | None = None):
@@ -73,6 +80,63 @@ class CFSSLClient:
         self.session = requests.Session()
         if self.auth_key:
             self.session.headers['Authorization'] = f'Bearer {self.auth_key}'
+        self._binary_path = None
+
+    def _find_binary(self) -> str:
+        """Find the CFSSL binary path."""
+        if self._binary_path:
+            return self._binary_path
+
+        # Check if we have a configured path
+        binary_path = getattr(settings, 'CFSSL_BINARY_PATH', None)
+        if binary_path and Path(binary_path).is_file():
+            self._binary_path = binary_path
+            return self._binary_path
+
+        # Check system PATH
+        binary = shutil.which('cfssl')
+        if binary:
+            self._binary_path = binary
+            return self._binary_path
+
+        # Check common locations
+        common_paths = [
+            '/usr/local/bin/cfssl',
+            '/usr/bin/cfssl',
+            Path.home() / 'go' / 'bin' / 'cfssl',
+        ]
+        for path in common_paths:
+            if Path(path).is_file():
+                self._binary_path = str(path)
+                return self._binary_path
+
+        raise CFSSLError("CFSSL binary not found. Install with: brew install cfssl")
+
+    def _run_cli(self, args: list[str], stdin: str | None = None) -> str:
+        """Run a CFSSL CLI command and return stdout."""
+        binary = self._find_binary()
+        cmd = [binary] + args
+
+        logger.debug(f"Running CFSSL CLI: {' '.join(cmd)}")
+
+        try:
+            result = subprocess.run(
+                cmd,
+                input=stdin,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+
+            if result.returncode != 0:
+                raise CFSSLError(f"CFSSL CLI error: {result.stderr}")
+
+            return result.stdout
+
+        except subprocess.TimeoutExpired:
+            raise CFSSLError("CFSSL CLI command timed out")
+        except FileNotFoundError:
+            raise CFSSLError(f"CFSSL binary not found at {binary}")
 
     def _request(self, endpoint: str, data: dict | None = None) -> dict:
         """Make a request to the CFSSL API."""
@@ -203,7 +267,7 @@ class CFSSLClient:
         expiry: str = "8760h"
     ) -> dict[str, str]:
         """
-        Sign a CSR with the CA.
+        Sign a CSR with the CA using the CFSSL CLI.
 
         Args:
             csr: PEM-encoded CSR
@@ -216,19 +280,8 @@ class CFSSLClient:
         Returns:
             Dictionary with 'certificate' PEM string
         """
-        data = {
-            "certificate_request": csr,
-            "profile": profile,
-            "hosts": hosts or [],
-        }
-
-        # Include CA certificate and key for signing
-        # CFSSL needs these to sign the certificate
-        data["ca"] = ca_cert
-        data["ca_key"] = ca_key
-
-        # Custom config with expiry
-        data["config"] = {
+        # Create config for signing profiles
+        config = {
             "signing": {
                 "default": {
                     "expiry": expiry,
@@ -260,11 +313,125 @@ class CFSSLClient:
             }
         }
 
-        result = self._request("sign", data)
+        # Use temp files for CA cert, key, config, and CSR
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
 
-        return {
-            'certificate': result.get('certificate', ''),
+            ca_cert_file = tmppath / "ca.pem"
+            ca_key_file = tmppath / "ca-key.pem"
+            config_file = tmppath / "config.json"
+            csr_file = tmppath / "csr.pem"
+
+            ca_cert_file.write_text(ca_cert)
+            ca_key_file.write_text(ca_key)
+            config_file.write_text(json.dumps(config))
+            csr_file.write_text(csr)
+
+            # Build command
+            args = [
+                "sign",
+                "-ca", str(ca_cert_file),
+                "-ca-key", str(ca_key_file),
+                "-config", str(config_file),
+                "-profile", profile,
+                str(csr_file),
+            ]
+
+            # Add hosts if provided
+            if hosts:
+                args.extend(["-hostname", ",".join(hosts)])
+
+            output = self._run_cli(args)
+
+            # Parse JSON output
+            try:
+                result = json.loads(output)
+                return {
+                    'certificate': result.get('cert', ''),
+                }
+            except json.JSONDecodeError as e:
+                raise CFSSLError(f"Failed to parse CFSSL output: {e}")
+
+    def sign_intermediate(
+        self,
+        csr: str,
+        ca_cert: str,
+        ca_key: str,
+        path_length: int = 0,
+        expiry: str = "43800h"  # 5 years default
+    ) -> dict[str, str]:
+        """
+        Sign an intermediate CA certificate using the CFSSL CLI.
+
+        Args:
+            csr: PEM-encoded CSR for the intermediate CA
+            ca_cert: PEM-encoded parent CA certificate
+            ca_key: PEM-encoded parent CA private key
+            path_length: Maximum path length for the intermediate (0 = can only sign end-entity)
+            expiry: Certificate validity period
+
+        Returns:
+            Dictionary with 'certificate' PEM string
+        """
+        # Create config with intermediate CA profile
+        config = {
+            "signing": {
+                "default": {
+                    "expiry": expiry,
+                },
+                "profiles": {
+                    "intermediate_ca": {
+                        "expiry": expiry,
+                        "usages": [
+                            "signing",
+                            "key encipherment",
+                            "cert sign",
+                            "crl sign"
+                        ],
+                        "ca_constraint": {
+                            "is_ca": True,
+                            "max_path_len": path_length,
+                            "max_path_len_zero": path_length == 0
+                        }
+                    }
+                }
+            }
         }
+
+        # Use temp files for CA cert, key, config, and CSR
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+
+            ca_cert_file = tmppath / "ca.pem"
+            ca_key_file = tmppath / "ca-key.pem"
+            config_file = tmppath / "config.json"
+            csr_file = tmppath / "csr.pem"
+
+            ca_cert_file.write_text(ca_cert)
+            ca_key_file.write_text(ca_key)
+            config_file.write_text(json.dumps(config))
+            csr_file.write_text(csr)
+
+            # Build command
+            args = [
+                "sign",
+                "-ca", str(ca_cert_file),
+                "-ca-key", str(ca_key_file),
+                "-config", str(config_file),
+                "-profile", "intermediate_ca",
+                str(csr_file),
+            ]
+
+            output = self._run_cli(args)
+
+            # Parse JSON output
+            try:
+                result = json.loads(output)
+                return {
+                    'certificate': result.get('cert', ''),
+                }
+            except json.JSONDecodeError as e:
+                raise CFSSLError(f"Failed to parse CFSSL output: {e}")
 
     def info(self, label: str = "") -> dict[str, Any]:
         """

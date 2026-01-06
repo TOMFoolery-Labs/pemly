@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+
+{% block title %}Import Certificate{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+  <nav class="text-sm text-slate-500 mb-2">
+    <a href="{% url 'core:ca_list' %}" class="hover:text-slate-700">Certificate Authorities</a>
+    <span class="mx-2">/</span>
+    <span class="text-slate-900">Import Certificate</span>
+  </nav>
+  <h1 class="text-2xl font-semibold text-slate-900">Import Signed Certificate</h1>
+  <p class="mt-1 text-sm text-slate-500">
+    Import the externally-signed certificate for <strong>{{ ca.name }}</strong>
+  </p>
+</div>
+
+<div class="max-w-3xl">
+  <!-- Pending CA Info -->
+  <div class="card mb-6">
+    <div class="card-header">
+      <h2 class="text-lg font-medium text-slate-900">Pending Intermediate CA</h2>
+    </div>
+    <div class="card-body">
+      <dl class="grid grid-cols-2 gap-4 text-sm">
+        <div>
+          <dt class="text-slate-500">Name</dt>
+          <dd class="font-medium text-slate-900">{{ ca.name }}</dd>
+        </div>
+        <div>
+          <dt class="text-slate-500">Common Name</dt>
+          <dd class="font-medium text-slate-900">{{ ca.common_name }}</dd>
+        </div>
+        <div>
+          <dt class="text-slate-500">Parent CA</dt>
+          <dd class="font-medium text-slate-900">{{ ca.parent.name }}</dd>
+        </div>
+        <div>
+          <dt class="text-slate-500">Created</dt>
+          <dd class="font-medium text-slate-900">{{ ca.created_at|date:"M d, Y H:i" }}</dd>
+        </div>
+      </dl>
+    </div>
+  </div>
+
+  <!-- CSR Download -->
+  <div class="card mb-6">
+    <div class="card-header">
+      <h2 class="text-lg font-medium text-slate-900">Certificate Signing Request</h2>
+    </div>
+    <div class="card-body">
+      <p class="text-sm text-slate-600 mb-4">
+        Sign this CSR with the parent CA's private key to generate the certificate.
+      </p>
+      <pre class="bg-slate-50 p-4 rounded-lg text-xs font-mono overflow-x-auto whitespace-pre-wrap break-all mb-4">{{ ca.csr_pem }}</pre>
+      <button onclick="navigator.clipboard.writeText(document.querySelector('pre').textContent)" class="btn-secondary btn-sm">
+        Copy CSR
+      </button>
+    </div>
+  </div>
+
+  <!-- Import Form -->
+  <form method="post">
+    {% csrf_token %}
+    <div class="card mb-6">
+      <div class="card-header">
+        <h2 class="text-lg font-medium text-slate-900">Signed Certificate</h2>
+      </div>
+      <div class="card-body">
+        <p class="text-sm text-slate-600 mb-4">
+          Paste the PEM-encoded certificate that was signed by the parent CA.
+        </p>
+        <textarea name="certificate_pem" rows="12" required
+                  class="form-input block w-full px-3 py-2 border border-slate-300 rounded-lg font-mono text-sm"
+                  placeholder="-----BEGIN CERTIFICATE-----
+...
+-----END CERTIFICATE-----">{{ certificate_pem|default:'' }}</textarea>
+      </div>
+    </div>
+
+    <div class="flex items-center justify-end gap-3">
+      <a href="{% url 'core:ca_list' %}" class="btn-secondary">Cancel</a>
+      <button type="submit" class="btn-primary" data-loading-text="Importing...">
+        Import Certificate
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}
