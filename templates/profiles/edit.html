@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+
+{% block title %}Edit Profile{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+  <nav class="text-sm text-slate-500 mb-2">
+    <a href="{% url 'core:profile_list' %}" class="hover:text-slate-700">Profiles</a>
+    <span class="mx-2">/</span>
+    <span class="text-slate-900">{{ profile.name }}</span>
+  </nav>
+  <h1 class="text-2xl font-semibold text-slate-900">Edit Profile</h1>
+  <p class="mt-1 text-sm text-slate-500">Update the settings for this certificate profile</p>
+</div>
+
+<form method="post" class="max-w-2xl">
+  {% csrf_token %}
+
+  <div class="card mb-6">
+    <div class="card-header">
+      <h2 class="text-lg font-medium text-slate-900">Profile Details</h2>
+    </div>
+    <div class="card-body space-y-6">
+      <div>
+        <label for="id_name" class="form-label">Name</label>
+        <input type="text" name="name" id="id_name" required
+               class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg"
+               value="{{ form.name.value|default:'' }}">
+        {% if form.name.errors %}<p class="form-error">{{ form.name.errors.0 }}</p>{% endif %}
+      </div>
+
+      <div>
+        <label for="id_description" class="form-label">Description</label>
+        <textarea name="description" id="id_description" rows="2"
+                  class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">{{ form.description.value|default:'' }}</textarea>
+        {% if form.description.errors %}<p class="form-error">{{ form.description.errors.0 }}</p>{% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="card mb-6">
+    <div class="card-header">
+      <h2 class="text-lg font-medium text-slate-900">Certificate Settings</h2>
+    </div>
+    <div class="card-body space-y-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <label for="id_certificate_type" class="form-label">Certificate Type</label>
+          <select name="certificate_type" id="id_certificate_type"
+                  class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+            {% for value, label in form.certificate_type.field.choices %}
+            <option value="{{ value }}" {% if form.certificate_type.value == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label for="id_validity_days" class="form-label">Validity (Days)</label>
+          <input type="number" name="validity_days" id="id_validity_days" min="1" max="825"
+                 class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg"
+                 value="{{ form.validity_days.value|default:365 }}">
+          {% if form.validity_days.errors %}<p class="form-error">{{ form.validity_days.errors.0 }}</p>{% endif %}
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <label for="id_key_algorithm" class="form-label">Key Algorithm</label>
+          <select name="key_algorithm" id="id_key_algorithm"
+                  class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+            {% for value, label in form.key_algorithm.field.choices %}
+            <option value="{{ value }}" {% if form.key_algorithm.value == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label for="id_key_size" class="form-label">Key Size</label>
+          <select name="key_size" id="id_key_size"
+                  class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+            {% for value, label in form.key_size.field.choices %}
+            <option value="{{ value }}" {% if form.key_size.value|stringformat:"s" == value|stringformat:"s" %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label for="id_organization" class="form-label">Default Organization (Optional)</label>
+        <input type="text" name="organization" id="id_organization"
+               class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg"
+               placeholder="Leave empty to inherit from CA"
+               value="{{ form.organization.value|default:'' }}">
+        <p class="form-help">Pre-fill organization field when using this profile</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="flex items-center gap-4">
+    <button type="submit" class="btn-primary" data-loading-text="Saving...">
+      Save Changes
+    </button>
+    <a href="{% url 'core:profile_list' %}" class="btn-secondary">
+      Cancel
+    </a>
+  </div>
+</form>
+{% endblock %}

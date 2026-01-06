@@ -19,6 +19,7 @@ from core.models import (
     CAStatus,
     Certificate,
     CertificateAuthority,
+    CertificateProfile,
     CertificateStatus,
     CertificateType,
     KeyAlgorithm,
@@ -201,10 +202,15 @@ class CertificateCreateView(LoginRequiredMixin, View):
             'organization': default_ca.organization,
             'signing_ca': default_ca.id,
         })
+
+        # Get all profiles for the dropdown
+        profiles = CertificateProfile.objects.all()
+
         return render(request, self.template_name, {
             'form': form,
             'signing_cas': signing_cas,
             'selected_ca': default_ca,
+            'profiles': profiles,
         })
 
     def post(self, request):

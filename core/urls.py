@@ -39,6 +39,13 @@ urlpatterns = [
 
     # API endpoints
     path('api/parse-csr/', views.CSRParseView.as_view(), name='api_parse_csr'),
+    path('api/profiles/<uuid:pk>/', views.ProfileDataView.as_view(), name='api_profile_data'),
+
+    # Certificate Profiles
+    path('profiles/', views.ProfileListView.as_view(), name='profile_list'),
+    path('profiles/create/', views.ProfileCreateView.as_view(), name='profile_create'),
+    path('profiles/<uuid:pk>/edit/', views.ProfileEditView.as_view(), name='profile_edit'),
+    path('profiles/<uuid:pk>/delete/', views.ProfileDeleteView.as_view(), name='profile_delete'),
 
     # Audit
     path('audit/', views.AuditLogView.as_view(), name='audit_log'),

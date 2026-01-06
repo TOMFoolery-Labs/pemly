@@ -22,6 +22,13 @@ from .certificates import (
 )
 from .audit import AuditLogView
 from .settings import SettingsView, CFSSLActionView
+from .profiles import (
+    ProfileListView,
+    ProfileCreateView,
+    ProfileEditView,
+    ProfileDeleteView,
+    ProfileDataView,
+)
 
 __all__ = [
     'DashboardView',
@@ -45,4 +52,9 @@ __all__ = [
     'AuditLogView',
     'SettingsView',
     'CFSSLActionView',
+    'ProfileListView',
+    'ProfileCreateView',
+    'ProfileEditView',
+    'ProfileDeleteView',
+    'ProfileDataView',
 ]

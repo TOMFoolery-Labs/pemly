@@ -3,9 +3,24 @@
 {% block title %}Dashboard{% endblock %}
 
 {% block content %}
-<div class="mb-8">
-  <h1 class="text-2xl font-semibold text-slate-900">Dashboard</h1>
-  <p class="mt-1 text-sm text-slate-500">Certificate Authority overview and quick actions</p>
+<div class="mb-8 flex items-start justify-between">
+  <div>
+    <h1 class="text-2xl font-semibold text-slate-900">Dashboard</h1>
+    <p class="mt-1 text-sm text-slate-500">Certificate Authority overview and quick actions</p>
+  </div>
+  {% if root_cas.count > 1 %}
+  <div class="flex items-center gap-2">
+    <label for="ca-selector" class="text-sm font-medium text-slate-700">Root CA:</label>
+    <select id="ca-selector" onchange="window.location.href='?ca=' + this.value"
+            class="form-input px-3 py-2 border border-slate-300 rounded-lg text-sm">
+      {% for root_ca in root_cas %}
+      <option value="{{ root_ca.pk }}" {% if selected_ca_id == root_ca.pk|stringformat:"s" %}selected{% endif %}>
+        {{ root_ca.name }}
+      </option>
+      {% endfor %}
+    </select>
+  </div>
+  {% endif %}
 </div>
 
 <!-- CA Status Card -->
@@ -27,7 +42,7 @@
         {% endif %}
       </div>
     </div>
-    <div class="mt-4 grid grid-cols-2 gap-4 text-sm">
+    <div class="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
       <div>
         <span class="text-slate-500">Organization:</span>
         <span class="ml-2 text-slate-900">{{ ca.organization }}</span>
@@ -35,6 +50,14 @@
       <div>
         <span class="text-slate-500">Valid Until:</span>
         <span class="ml-2 text-slate-900">{{ ca.not_after|date:"M d, Y" }}</span>
+      </div>
+      <div>
+        <span class="text-slate-500">Type:</span>
+        <span class="ml-2 text-slate-900">{{ ca.get_ca_type_display }}</span>
+      </div>
+      <div>
+        <span class="text-slate-500">Hierarchy:</span>
+        <span class="ml-2 text-slate-900">{{ hierarchy_cas|length }} CA{{ hierarchy_cas|length|pluralize }}</span>
       </div>
     </div>
   </div>

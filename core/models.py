@@ -633,3 +633,74 @@ class AppSettings(models.Model):
         """Get the settings instance, creating it if necessary."""
         obj, _ = cls.objects.get_or_create(pk=1)
         return obj
+
+
+class CertificateProfile(models.Model):
+    """
+    Pre-defined certificate templates for common use cases.
+
+    Profiles speed up certificate issuance by pre-filling form fields
+    with sensible defaults for specific use cases.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=100, help_text="Profile name")
+    description = models.TextField(blank=True, help_text="Description of when to use this profile")
+
+    # Whether this is a built-in profile (cannot be deleted)
+    is_builtin = models.BooleanField(default=False)
+
+    # Certificate defaults
+    certificate_type = models.CharField(
+        max_length=50,
+        choices=CertificateType.choices,
+        default=CertificateType.SERVER_TLS
+    )
+    validity_days = models.PositiveIntegerField(
+        default=365,
+        help_text="Default certificate validity in days"
+    )
+
+    # Key configuration defaults
+    key_algorithm = models.CharField(
+        max_length=10,
+        choices=KeyAlgorithm.choices,
+        default=KeyAlgorithm.RSA
+    )
+    key_size = models.PositiveIntegerField(
+        default=2048,
+        help_text="Key size in bits (RSA: 2048/4096, ECDSA: 256/384)"
+    )
+
+    # Optional organization default
+    organization = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Default organization (leave empty to inherit from CA)"
+    )
+
+    # Metadata
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='certificate_profiles'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['is_builtin', 'name']
+
+    def __str__(self):
+        return self.name
+
+    @classmethod
+    def get_builtin_profiles(cls):
+        """Return queryset of built-in profiles."""
+        return cls.objects.filter(is_builtin=True)
+
+    @classmethod
+    def get_user_profiles(cls):
+        """Return queryset of user-created profiles."""
+        return cls.objects.filter(is_builtin=False)

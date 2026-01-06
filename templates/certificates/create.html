@@ -11,6 +11,30 @@
 <form method="post" class="max-w-3xl">
   {% csrf_token %}
 
+  <!-- Profile Selection -->
+  {% if profiles %}
+  <div class="card mb-6">
+    <div class="card-header">
+      <h2 class="text-lg font-medium text-slate-900">Quick Start</h2>
+    </div>
+    <div class="card-body">
+      <div>
+        <label for="id_profile" class="form-label">Certificate Profile</label>
+        <select id="id_profile" onchange="applyProfile(this.value)"
+                class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+          <option value="">-- Select a profile to auto-fill settings --</option>
+          {% for profile in profiles %}
+          <option value="{{ profile.pk }}">
+            {{ profile.name }}{% if profile.is_builtin %} (Built-in){% endif %}
+          </option>
+          {% endfor %}
+        </select>
+        <p class="form-help">Profiles pre-fill common settings. You can still modify any field below.</p>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
   <!-- Signing CA Selection -->
   <div class="card mb-6">
     <div class="card-header">
@@ -241,6 +265,53 @@ async function parseCSR() {
 
   } catch (error) {
     console.error('Failed to parse CSR:', error);
+  }
+}
+
+// Apply certificate profile settings
+async function applyProfile(profileId) {
+  if (!profileId) return;
+
+  try {
+    const response = await fetch(`/api/profiles/${profileId}/`, {
+      headers: {
+        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+      }
+    });
+
+    if (!response.ok) {
+      console.error('Failed to fetch profile');
+      return;
+    }
+
+    const data = await response.json();
+
+    // Apply profile settings to form
+    if (data.certificate_type) {
+      document.getElementById('id_certificate_type').value = data.certificate_type;
+    }
+    if (data.validity_days) {
+      document.getElementById('id_validity_days').value = data.validity_days;
+    }
+    if (data.key_algorithm) {
+      document.getElementById('id_key_algorithm').value = data.key_algorithm;
+    }
+    if (data.key_size) {
+      document.getElementById('id_key_size').value = data.key_size;
+    }
+    if (data.organization) {
+      document.getElementById('id_organization').value = data.organization;
+    }
+
+    // Flash the form to indicate changes were applied
+    const cards = document.querySelectorAll('.card');
+    cards.forEach(card => {
+      card.classList.add('ring-2', 'ring-blue-500');
+      setTimeout(() => card.classList.remove('ring-2', 'ring-blue-500'), 500);
+    });
+
+  } catch (error) {
+    console.error('Failed to apply profile:', error);
   }
 }
 
