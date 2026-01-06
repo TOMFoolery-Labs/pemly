@@ -1,12 +1,17 @@
+import json
 from datetime import timedelta
 
+from cryptography import x509
+from cryptography.hazmat.primitives import serialization
 from django import forms
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.utils.decorators import method_decorator
 from django.views import View
+from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import DetailView, ListView
 
 from core.models import (
@@ -452,3 +457,66 @@ class CertificateDownloadView(LoginRequiredMixin, View):
         response = HttpResponse(content, content_type=content_type)
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
+
+
+class CSRParseView(LoginRequiredMixin, View):
+    """Parse a CSR and return subject information as JSON."""
+
+    def post(self, request):
+        try:
+            data = json.loads(request.body)
+            csr_pem = data.get('csr', '')
+
+            if not csr_pem:
+                return JsonResponse({'error': 'No CSR provided'}, status=400)
+
+            # Parse the CSR
+            csr = x509.load_pem_x509_csr(csr_pem.encode())
+
+            # Extract subject attributes
+            subject = csr.subject
+            result = {
+                'common_name': '',
+                'organization': '',
+                'organizational_unit': '',
+                'country': '',
+                'state': '',
+                'locality': '',
+                'dns_names': [],
+                'ip_addresses': [],
+            }
+
+            # Get subject components
+            for attr in subject:
+                if attr.oid == x509.oid.NameOID.COMMON_NAME:
+                    result['common_name'] = attr.value
+                elif attr.oid == x509.oid.NameOID.ORGANIZATION_NAME:
+                    result['organization'] = attr.value
+                elif attr.oid == x509.oid.NameOID.ORGANIZATIONAL_UNIT_NAME:
+                    result['organizational_unit'] = attr.value
+                elif attr.oid == x509.oid.NameOID.COUNTRY_NAME:
+                    result['country'] = attr.value
+                elif attr.oid == x509.oid.NameOID.STATE_OR_PROVINCE_NAME:
+                    result['state'] = attr.value
+                elif attr.oid == x509.oid.NameOID.LOCALITY_NAME:
+                    result['locality'] = attr.value
+
+            # Extract SANs if present
+            try:
+                san_ext = csr.extensions.get_extension_for_oid(
+                    x509.oid.ExtensionOID.SUBJECT_ALTERNATIVE_NAME
+                )
+                for name in san_ext.value:
+                    if isinstance(name, x509.DNSName):
+                        result['dns_names'].append(name.value)
+                    elif isinstance(name, x509.IPAddress):
+                        result['ip_addresses'].append(str(name.value))
+            except x509.ExtensionNotFound:
+                pass
+
+            return JsonResponse(result)
+
+        except ValueError as e:
+            return JsonResponse({'error': f'Invalid CSR: {e}'}, status=400)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)

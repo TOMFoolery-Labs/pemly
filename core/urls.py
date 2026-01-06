@@ -37,6 +37,9 @@ urlpatterns = [
     path('certificates/<uuid:pk>/revoke/', views.CertificateRevokeView.as_view(), name='certificate_revoke'),
     path('certificates/<uuid:pk>/download/<str:file_type>/', views.CertificateDownloadView.as_view(), name='certificate_download'),
 
+    # API endpoints
+    path('api/parse-csr/', views.CSRParseView.as_view(), name='api_parse_csr'),
+
     # Audit
     path('audit/', views.AuditLogView.as_view(), name='audit_log'),
 

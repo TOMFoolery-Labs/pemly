@@ -18,6 +18,7 @@ from .certificates import (
     CertificateDetailView,
     CertificateRevokeView,
     CertificateDownloadView,
+    CSRParseView,
 )
 from .audit import AuditLogView
 from .settings import SettingsView, CFSSLActionView
@@ -40,6 +41,7 @@ __all__ = [
     'CertificateDetailView',
     'CertificateRevokeView',
     'CertificateDownloadView',
+    'CSRParseView',
     'AuditLogView',
     'SettingsView',
     'CFSSLActionView',
