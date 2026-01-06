@@ -15,13 +15,11 @@ RUN pip install --user --no-cache-dir -r requirements.txt
 
 # Install Node dependencies and build Tailwind CSS
 COPY package.json package-lock.json* ./
-RUN npm ci --only=production || npm install
+RUN npm ci || npm install
 
 COPY tailwind.config.js ./
 COPY static/ ./static/
 COPY templates/ ./templates/
-COPY core/templates/ ./core/templates/
-COPY accounts/templates/ ./accounts/templates/
 RUN npm run tailwind:prod
 
 # Copy application code
@@ -51,9 +49,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy Python packages from builder
-COPY --from=builder /root/.local /root/.local
-ENV PATH=/root/.local/bin:$PATH
+# Copy Python packages from builder to site-packages (accessible by all users)
+COPY --from=builder /root/.local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=builder /root/.local/bin /usr/local/bin
 
 # Copy application code
 COPY --from=builder /app /app
@@ -68,7 +66,7 @@ RUN useradd --create-home --shell /bin/bash pemly \
 
 # Copy and set up entrypoint
 COPY docker-entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+RUN chmod 755 /usr/local/bin/docker-entrypoint.sh
 
 USER pemly
 
