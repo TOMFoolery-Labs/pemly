@@ -8,6 +8,7 @@ from .certificates import (
     CertificateDownloadView,
 )
 from .audit import AuditLogView
+from .settings import SettingsView, CFSSLActionView
 
 __all__ = [
     'DashboardView',
@@ -21,4 +22,6 @@ __all__ = [
     'CertificateRevokeView',
     'CertificateDownloadView',
     'AuditLogView',
+    'SettingsView',
+    'CFSSLActionView',
 ]

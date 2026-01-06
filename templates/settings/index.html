@@ -1,0 +1,154 @@
+{% extends 'base.html' %}
+
+{% block title %}Settings{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+  <h1 class="text-2xl font-semibold text-slate-900">Settings</h1>
+  <p class="mt-1 text-sm text-slate-500">Configure application settings</p>
+</div>
+
+<div class="max-w-3xl space-y-6">
+  <!-- CFSSL Status Card -->
+  <div class="card">
+    <div class="card-header flex items-center justify-between">
+      <h2 class="text-lg font-medium text-slate-900">CFSSL Server Status</h2>
+      {% if cfssl_status.running and cfssl_status.healthy %}
+      <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+        <span class="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+        Running
+      </span>
+      {% elif cfssl_status.running %}
+      <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+        <span class="w-1.5 h-1.5 bg-amber-500 rounded-full"></span>
+        Unhealthy
+      </span>
+      {% else %}
+      <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-800">
+        <span class="w-1.5 h-1.5 bg-slate-400 rounded-full"></span>
+        Stopped
+      </span>
+      {% endif %}
+    </div>
+    <div class="card-body">
+      <dl class="grid grid-cols-2 gap-4 text-sm">
+        <div>
+          <dt class="text-slate-500">Binary Path</dt>
+          <dd class="font-mono text-slate-900">{{ cfssl_status.binary_found|default:"Not found" }}</dd>
+        </div>
+        <div>
+          <dt class="text-slate-500">Process ID</dt>
+          <dd class="font-mono text-slate-900">{{ cfssl_status.pid|default:"-" }}</dd>
+        </div>
+        <div>
+          <dt class="text-slate-500">Host</dt>
+          <dd class="font-mono text-slate-900">{{ cfssl_status.host|default:"localhost" }}</dd>
+        </div>
+        <div>
+          <dt class="text-slate-500">Port</dt>
+          <dd class="font-mono text-slate-900">{{ cfssl_status.port|default:"8888" }}</dd>
+        </div>
+      </dl>
+
+      <!-- CFSSL Control Buttons -->
+      <div class="mt-6 flex items-center gap-3">
+        <form method="post" action="{% url 'core:cfssl_action' %}" class="inline">
+          {% csrf_token %}
+          {% if cfssl_status.running %}
+          <button type="submit" name="action" value="stop" class="btn-secondary text-sm">
+            Stop CFSSL
+          </button>
+          {% else %}
+          <button type="submit" name="action" value="start" class="btn-primary text-sm" data-loading-text="Starting...">
+            Start CFSSL
+          </button>
+          {% endif %}
+        </form>
+        {% if cfssl_status.running %}
+        <form method="post" action="{% url 'core:cfssl_action' %}" class="inline">
+          {% csrf_token %}
+          <button type="submit" name="action" value="restart" class="btn-secondary text-sm" data-loading-text="Restarting...">
+            Restart CFSSL
+          </button>
+        </form>
+        {% endif %}
+      </div>
+
+      {% if not cfssl_status.binary_found %}
+      <div class="mt-4 alert-warning">
+        <p class="text-sm">
+          CFSSL binary not found. Install it with:
+          <code class="bg-amber-100 px-1 rounded">brew install cfssl</code> (macOS) or
+          <code class="bg-amber-100 px-1 rounded">go install github.com/cloudflare/cfssl/cmd/...@latest</code>
+        </p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- CFSSL Configuration -->
+  <form method="post">
+    {% csrf_token %}
+    <div class="card">
+      <div class="card-header">
+        <h2 class="text-lg font-medium text-slate-900">CFSSL Configuration</h2>
+      </div>
+      <div class="card-body space-y-6">
+        <!-- Auto Start -->
+        <div class="flex items-start">
+          <div class="flex items-center h-5">
+            <input type="checkbox" name="cfssl_auto_start" id="id_cfssl_auto_start"
+                   {% if form.cfssl_auto_start.value %}checked{% endif %}
+                   class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded">
+          </div>
+          <div class="ml-3">
+            <label for="id_cfssl_auto_start" class="text-sm font-medium text-slate-900">
+              Auto-start CFSSL
+            </label>
+            <p class="text-sm text-slate-500">
+              Automatically start the CFSSL server when the application starts
+            </p>
+          </div>
+        </div>
+
+        <!-- Binary Path -->
+        <div>
+          <label for="id_cfssl_binary_path" class="form-label">Binary Path</label>
+          <input type="text" name="cfssl_binary_path" id="id_cfssl_binary_path"
+                 value="{{ form.cfssl_binary_path.value|default:'' }}"
+                 placeholder="Leave empty for auto-detection"
+                 class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+          <p class="form-help">
+            Path to the CFSSL binary. Leave empty to auto-detect from PATH.
+          </p>
+        </div>
+
+        <!-- Host and Port -->
+        <div class="grid grid-cols-2 gap-6">
+          <div>
+            <label for="id_cfssl_host" class="form-label">Host</label>
+            <input type="text" name="cfssl_host" id="id_cfssl_host"
+                   value="{{ form.cfssl_host.value|default:'localhost' }}"
+                   class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+            <p class="form-help">Host address for CFSSL to bind to</p>
+          </div>
+          <div>
+            <label for="id_cfssl_port" class="form-label">Port</label>
+            <input type="number" name="cfssl_port" id="id_cfssl_port"
+                   value="{{ form.cfssl_port.value|default:8888 }}"
+                   min="1" max="65535"
+                   class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+            <p class="form-help">Port for CFSSL to listen on</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-6">
+      <button type="submit" class="btn-primary" data-loading-text="Saving...">
+        Save Settings
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -399,3 +399,53 @@ class AuditLog(models.Model):
             ip_address=ip_address,
             user_agent=user_agent
         )
+
+
+class AppSettings(models.Model):
+    """
+    Application settings stored in the database.
+
+    Singleton model - only one instance should exist.
+    These settings override environment variables when set.
+    """
+
+    # CFSSL Settings
+    cfssl_auto_start = models.BooleanField(
+        default=True,
+        help_text="Automatically start CFSSL when the application starts"
+    )
+    cfssl_binary_path = models.CharField(
+        max_length=500,
+        blank=True,
+        help_text="Path to CFSSL binary (leave empty for auto-detection)"
+    )
+    cfssl_host = models.CharField(
+        max_length=255,
+        default='localhost',
+        help_text="Host for CFSSL to bind to"
+    )
+    cfssl_port = models.PositiveIntegerField(
+        default=8888,
+        help_text="Port for CFSSL to listen on"
+    )
+
+    # Metadata
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Application Settings"
+        verbose_name_plural = "Application Settings"
+
+    def __str__(self):
+        return "Application Settings"
+
+    def save(self, *args, **kwargs):
+        """Ensure only one instance exists."""
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def get(cls) -> "AppSettings":
+        """Get the settings instance, creating it if necessary."""
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj

@@ -23,4 +23,8 @@ urlpatterns = [
 
     # Audit
     path('audit/', views.AuditLogView.as_view(), name='audit_log'),
+
+    # Settings
+    path('settings/', views.SettingsView.as_view(), name='settings'),
+    path('settings/cfssl/', views.CFSSLActionView.as_view(), name='cfssl_action'),
 ]
