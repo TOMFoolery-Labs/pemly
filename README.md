@@ -78,6 +78,7 @@ Edit `.env` and set the following:
 
 ```bash
 # Generate a Django secret key
+#Run: python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())'
 DJANGO_SECRET_KEY=your-secret-key-here
 
 # Generate encryption key for private keys at rest
@@ -101,19 +102,13 @@ python manage.py createsuperuser
 npm run tailwind:build
 ```
 
-### 6. Start CFSSL Server
-
-In a separate terminal:
-
-```bash
-cfssl serve -address=localhost -port=8888
-```
-
-### 7. Run Django Development Server
+### 6. Run Django Development Server
 
 ```bash
 python manage.py runserver
 ```
+
+CFSSL starts automatically with Django (configured via `CFSSL_AUTO_START=true`).
 
 Visit http://localhost:8000 and log in with your superuser credentials.
 
