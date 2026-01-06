@@ -1,0 +1,183 @@
+{% extends 'base.html' %}
+
+{% block title %}Restore Preview{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+  <nav class="text-sm text-slate-500 mb-2">
+    <a href="{% url 'core:settings' %}" class="hover:text-slate-700">Settings</a>
+    <span class="mx-2">/</span>
+    <a href="{% url 'core:backup' %}" class="hover:text-slate-700">Backup & Restore</a>
+    <span class="mx-2">/</span>
+    <span class="text-slate-900">Restore Preview</span>
+  </nav>
+  <h1 class="text-2xl font-semibold text-slate-900">Restore Preview</h1>
+  <p class="mt-1 text-sm text-slate-500">Review what will be restored from this backup</p>
+</div>
+
+<div class="max-w-3xl">
+  <!-- Encryption Key Reminder -->
+  <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg mb-6">
+    <div class="flex">
+      <svg class="h-5 w-5 text-blue-500 mr-3 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+      </svg>
+      <div>
+        <h3 class="text-sm font-semibold text-blue-800">ENCRYPTION_KEY Reminder</h3>
+        <p class="text-sm text-blue-700 mt-1">
+          Restored private keys will only work if your server is configured with the same
+          <code class="bg-blue-100 px-1 rounded font-mono text-xs">ENCRYPTION_KEY</code>
+          that was used when the backup was created.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Backup Info Card -->
+  <div class="card mb-6">
+    <div class="card-header">
+      <h2 class="text-lg font-medium text-slate-900">Backup Information</h2>
+    </div>
+    <div class="card-body">
+      <dl class="grid grid-cols-2 gap-4 text-sm">
+        <div>
+          <dt class="text-slate-500">Created At</dt>
+          <dd class="font-medium text-slate-900">{{ preview.created_at }}</dd>
+        </div>
+        <div>
+          <dt class="text-slate-500">Includes Audit Logs</dt>
+          <dd class="font-medium text-slate-900">
+            {% if preview.includes_audit_logs %}Yes{% else %}No{% endif %}
+          </dd>
+        </div>
+      </dl>
+    </div>
+  </div>
+
+  <!-- Contents Preview Card -->
+  <div class="card mb-6">
+    <div class="card-header">
+      <h2 class="text-lg font-medium text-slate-900">Backup Contents</h2>
+    </div>
+    <div class="card-body">
+      <table class="min-w-full divide-y divide-slate-200">
+        <thead>
+          <tr>
+            <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Item Type</th>
+            <th class="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">In Backup</th>
+            <th class="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Conflicts</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-200">
+          <tr>
+            <td class="px-4 py-3 text-sm text-slate-900">Certificate Authorities</td>
+            <td class="px-4 py-3 text-sm text-slate-900 text-right">{{ preview.counts.certificate_authorities }}</td>
+            <td class="px-4 py-3 text-sm text-right">
+              {% if preview.conflicts.certificate_authorities > 0 %}
+              <span class="text-amber-600 font-medium">{{ preview.conflicts.certificate_authorities }}</span>
+              {% else %}
+              <span class="text-slate-400">0</span>
+              {% endif %}
+            </td>
+          </tr>
+          <tr>
+            <td class="px-4 py-3 text-sm text-slate-900">Certificates</td>
+            <td class="px-4 py-3 text-sm text-slate-900 text-right">{{ preview.counts.certificates }}</td>
+            <td class="px-4 py-3 text-sm text-right">
+              {% if preview.conflicts.certificates > 0 %}
+              <span class="text-amber-600 font-medium">{{ preview.conflicts.certificates }}</span>
+              {% else %}
+              <span class="text-slate-400">0</span>
+              {% endif %}
+            </td>
+          </tr>
+          <tr>
+            <td class="px-4 py-3 text-sm text-slate-900">Certificate Profiles</td>
+            <td class="px-4 py-3 text-sm text-slate-900 text-right">{{ preview.counts.certificate_profiles }}</td>
+            <td class="px-4 py-3 text-sm text-right">
+              {% if preview.conflicts.certificate_profiles > 0 %}
+              <span class="text-amber-600 font-medium">{{ preview.conflicts.certificate_profiles }}</span>
+              {% else %}
+              <span class="text-slate-400">0</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% if preview.includes_audit_logs %}
+          <tr>
+            <td class="px-4 py-3 text-sm text-slate-900">Audit Logs</td>
+            <td class="px-4 py-3 text-sm text-slate-900 text-right">{{ preview.counts.audit_logs }}</td>
+            <td class="px-4 py-3 text-sm text-right"><span class="text-slate-400">-</span></td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+
+      {% if preview.conflicts.certificate_authorities > 0 or preview.conflicts.certificates > 0 or preview.conflicts.certificate_profiles > 0 %}
+      <div class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <div class="flex">
+          <svg class="h-5 w-5 text-blue-500 mr-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+          </svg>
+          <div>
+            <h3 class="text-sm font-medium text-blue-800">Conflicts detected</h3>
+            <p class="text-sm text-blue-700 mt-1">
+              Some items in the backup already exist in the system. Choose how to handle them below.
+            </p>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Restore Options Form -->
+  <form method="post" action="{% url 'core:restore_confirm' %}">
+    {% csrf_token %}
+
+    <div class="card mb-6">
+      <div class="card-header">
+        <h2 class="text-lg font-medium text-slate-900">Restore Mode</h2>
+      </div>
+      <div class="card-body space-y-4">
+        <div class="flex items-start">
+          <div class="flex items-center h-5">
+            <input type="radio" name="mode" id="mode_merge" value="merge" checked
+                   class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300">
+          </div>
+          <div class="ml-3">
+            <label for="mode_merge" class="text-sm font-medium text-slate-900">
+              Merge
+            </label>
+            <p class="text-sm text-slate-500">
+              Add new items from the backup. Skip items that already exist.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-start">
+          <div class="flex items-center h-5">
+            <input type="radio" name="mode" id="mode_replace" value="replace"
+                   class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300">
+          </div>
+          <div class="ml-3">
+            <label for="mode_replace" class="text-sm font-medium text-slate-900">
+              Replace All
+            </label>
+            <p class="text-sm text-slate-500">
+              Delete all existing CAs, certificates, and profiles, then restore from backup.
+              <span class="text-red-600 font-medium">This action cannot be undone.</span>
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex items-center justify-end gap-3">
+      <a href="{% url 'core:backup' %}" class="btn-secondary">Cancel</a>
+      <button type="submit" class="btn-primary" data-loading-text="Restoring...">
+        Restore Backup
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}

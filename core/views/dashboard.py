@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import redirect
 from django.utils import timezone
@@ -14,6 +15,22 @@ class DashboardView(LoginRequiredMixin, TemplateView):
     template_name = 'dashboard/index.html'
 
     def get(self, request, *args, **kwargs):
+        # Check if CFSSL binary is available - redirect to settings if not
+        if not request.session.get('cfssl_check_done'):
+            try:
+                from core.services import get_cfssl_manager
+                manager = get_cfssl_manager()
+                if not manager.find_binary():
+                    request.session['cfssl_check_done'] = True
+                    messages.error(
+                        request,
+                        "CFSSL binary not found. Please install CFSSL or configure the binary path below."
+                    )
+                    return redirect('core:settings')
+                request.session['cfssl_check_done'] = True
+            except Exception:
+                pass  # If check fails, continue to dashboard
+
         # Redirect to CA setup if no CA exists
         if not CertificateAuthority.objects.filter(is_active=True).exists():
             return redirect('core:ca_setup')

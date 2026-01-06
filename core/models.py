@@ -534,6 +534,8 @@ class AuditLog(models.Model):
         CERT_DOWNLOADED = 'cert_downloaded', 'Certificate Downloaded'
         USER_LOGIN = 'user_login', 'User Login'
         USER_LOGOUT = 'user_logout', 'User Logout'
+        BACKUP_CREATED = 'backup_created', 'Backup Created'
+        BACKUP_RESTORED = 'backup_restored', 'Backup Restored'
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     timestamp = models.DateTimeField(auto_now_add=True, db_index=True)

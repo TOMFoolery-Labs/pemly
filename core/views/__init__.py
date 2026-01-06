@@ -22,6 +22,7 @@ from .certificates import (
 )
 from .audit import AuditLogView
 from .settings import SettingsView, CFSSLActionView
+from .backup import BackupView, RestoreUploadView, RestoreConfirmView
 from .profiles import (
     ProfileListView,
     ProfileCreateView,
@@ -57,4 +58,7 @@ __all__ = [
     'ProfileEditView',
     'ProfileDeleteView',
     'ProfileDataView',
+    'BackupView',
+    'RestoreUploadView',
+    'RestoreConfirmView',
 ]

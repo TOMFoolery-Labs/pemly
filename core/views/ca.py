@@ -81,6 +81,22 @@ class CASetupView(LoginRequiredMixin, View):
     template_name = 'ca/setup.html'
 
     def get(self, request):
+        # Check if CFSSL binary is available - redirect to settings if not
+        if not request.session.get('cfssl_check_done'):
+            try:
+                from core.services import get_cfssl_manager
+                manager = get_cfssl_manager()
+                if not manager.find_binary():
+                    request.session['cfssl_check_done'] = True
+                    messages.error(
+                        request,
+                        "CFSSL binary not found. Please install CFSSL or configure the binary path before setting up a CA."
+                    )
+                    return redirect('core:settings')
+                request.session['cfssl_check_done'] = True
+            except Exception:
+                pass  # If check fails, continue
+
         form = CASetupForm()
         return render(request, self.template_name, {'form': form})
 

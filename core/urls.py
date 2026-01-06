@@ -53,4 +53,9 @@ urlpatterns = [
     # Settings
     path('settings/', views.SettingsView.as_view(), name='settings'),
     path('settings/cfssl/', views.CFSSLActionView.as_view(), name='cfssl_action'),
+
+    # Backup & Restore
+    path('settings/backup/', views.BackupView.as_view(), name='backup'),
+    path('settings/restore/upload/', views.RestoreUploadView.as_view(), name='restore_upload'),
+    path('settings/restore/confirm/', views.RestoreConfirmView.as_view(), name='restore_confirm'),
 ]
