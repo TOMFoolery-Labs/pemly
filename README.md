@@ -117,6 +117,126 @@ python manage.py runserver
 
 Visit http://localhost:8000 and log in with your superuser credentials.
 
+## Docker Deployment
+
+### Prerequisites
+
+- Docker and Docker Compose
+
+### 1. Configure Environment
+
+```bash
+cp .env.example .env
+```
+
+Generate and set the required secrets in `.env`:
+
+```bash
+# Generate Django secret key
+python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+
+# Generate encryption key for private keys
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+Edit `.env`:
+
+```bash
+DJANGO_SECRET_KEY=<generated-secret-key>
+ENCRYPTION_KEY=<generated-fernet-key>
+POSTGRES_PASSWORD=<strong-database-password>
+DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,your-domain.com
+```
+
+### 2. Build and Start
+
+**Option A: With Docker PostgreSQL (default)**
+
+```bash
+docker compose up -d --build
+```
+
+**Option B: With external database**
+
+```bash
+# Set DATABASE_URL in .env:
+# DATABASE_URL=postgres://user:password@your-db-host:5432/pemly
+
+# Start only the app container
+docker compose up -d --build app
+```
+
+```bash
+# View logs
+docker compose logs -f app
+
+# Create superuser
+docker compose exec app python manage.py createsuperuser
+```
+
+### 3. Access the Application
+
+Visit http://localhost:8000 and log in with your superuser credentials.
+
+### Docker Commands
+
+```bash
+# Stop containers
+docker compose down
+
+# Stop and remove volumes (WARNING: deletes all data)
+docker compose down -v
+
+# Rebuild after code changes
+docker compose up -d --build
+
+# Run Django management commands
+docker compose exec app python manage.py <command>
+
+# Access container shell
+docker compose exec app bash
+```
+
+### Production Considerations
+
+For production deployments:
+
+1. **HTTPS**: Put a reverse proxy (nginx, Traefik, Caddy) in front with SSL termination
+2. **Environment**: Set `DJANGO_ALLOWED_HOSTS` and `CSRF_TRUSTED_ORIGINS` appropriately
+3. **Secrets**: Consider using Docker secrets or a secrets manager instead of `.env`
+4. **Backups**: Regularly backup the `postgres_data` and `app_storage` volumes
+5. **ENCRYPTION_KEY**: Store securely - losing it means losing access to all private keys
+
+### Architecture
+
+```
+┌─────────────────────────────────────────┐
+│              Docker Host                │
+│  ┌───────────────────────────────────┐  │
+│  │           app container           │  │
+│  │  ┌─────────┐    ┌──────────────┐  │  │
+│  │  │ Gunicorn│    │    CFSSL     │  │  │
+│  │  │ (Django)│────│  (auto-start)│  │  │
+│  │  └─────────┘    └──────────────┘  │  │
+│  │         │                         │  │
+│  │         ▼                         │  │
+│  │   ┌───────────┐                   │  │
+│  │   │ WhiteNoise│ (static files)    │  │
+│  │   └───────────┘                   │  │
+│  └───────────────────────────────────┘  │
+│              │                          │
+│              ▼                          │
+│  ┌───────────────────────────────────┐  │
+│  │          db container             │  │
+│  │         (PostgreSQL)              │  │
+│  └───────────────────────────────────┘  │
+│                                         │
+│  Volumes:                               │
+│  - postgres_data (database)             │
+│  - app_storage (certificates)           │
+└─────────────────────────────────────────┘
+```
+
 ## Development
 
 ### Tailwind CSS
@@ -205,11 +325,20 @@ Pemly communicates with CFSSL via its REST API:
 
 ## Roadmap
 
-See `PROJECT_PLAN.md` for the full implementation plan. Future phases include:
+See `PROJECT_PLAN.md` for the full implementation plan.
 
-- **Phase 2:** Certificate revocation lists (CRL), expiration warnings, filesystem export
-- **Phase 3:** Certificate profiles/templates, email notifications, REST API
-- **Phase 4:** Role-based access control (RBAC), Docker deployment, backup/restore
+**Completed:**
+- Certificate Authority hierarchy (Root + Intermediate CAs)
+- Air-gap support (export/remove/restore private keys)
+- Certificate profiles/templates
+- Certificate revocation with CRL generation
+- Backup and restore functionality
+- Docker deployment
+
+**Planned:**
+- Email notifications for expiring certificates
+- REST API for automation
+- Role-based access control (RBAC)
 
 ## License
 

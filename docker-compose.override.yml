@@ -1,0 +1,22 @@
+# Development overrides
+# This file is automatically loaded by docker compose
+# For production, use: docker compose -f docker-compose.yml up
+
+services:
+  app:
+    build:
+      context: .
+      target: builder  # Use builder stage for development
+    volumes:
+      - .:/app
+      - /app/node_modules  # Prevent overwriting node_modules
+      - /app/staticfiles   # Prevent overwriting staticfiles
+      - app_storage:/app/storage
+    environment:
+      - DJANGO_SETTINGS_MODULE=pkife.settings.development
+      - DJANGO_DEBUG=true
+    command: python manage.py runserver 0.0.0.0:8000
+
+  db:
+    ports:
+      - "5432:5432"  # Expose PostgreSQL for local tools
