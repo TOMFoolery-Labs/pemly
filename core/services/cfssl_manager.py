@@ -258,8 +258,11 @@ class CFSSLManager:
         """Stop the CFSSL server process gracefully."""
         self._shutdown_event.set()
 
+        # Don't try to join if we're being called from the monitor thread itself
+        # (e.g., during restart from health check failure)
         if self._monitor_thread and self._monitor_thread.is_alive():
-            self._monitor_thread.join(timeout=5)
+            if threading.current_thread() is not self._monitor_thread:
+                self._monitor_thread.join(timeout=5)
 
         if self._process and self.is_running():
             logger.info("Stopping CFSSL...")
