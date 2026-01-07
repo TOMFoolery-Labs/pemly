@@ -178,8 +178,17 @@ class CFSSLManager:
             True if started successfully, False otherwise
         """
         if self.is_running():
-            logger.info("CFSSL is already running")
+            logger.info("CFSSL is already running (managed by this process)")
             return True
+
+        # Check if CFSSL is already running externally (e.g., started by another worker)
+        # Retry a few times to handle race conditions with multiple workers starting
+        for attempt in range(3):
+            if self.health_check():
+                logger.info("CFSSL is already running (external process)")
+                return True
+            if attempt < 2:
+                time.sleep(0.5)  # Brief wait before retry
 
         # Find binary (pass configured path to avoid database access if provided)
         self._binary_path = self.find_binary(configured_path=binary_path)
@@ -223,6 +232,11 @@ class CFSSLManager:
 
             if not self.is_running():
                 stderr = self._process.stderr.read().decode() if self._process.stderr else ""
+                # Check if another process started CFSSL (race condition)
+                if self.health_check():
+                    logger.info("CFSSL is already running (started by another process)")
+                    self._process = None  # We don't own this process
+                    return True
                 logger.error(f"CFSSL failed to start: {stderr}")
                 return False
 

@@ -1,41 +1,43 @@
 .PHONY: up dev down build logs shell migrate createsuperuser
 
+COMPOSE := docker compose --env-file .env -f deploy/docker/compose.yml
+
 # Production
 up:
-	docker compose -f deploy/docker/compose.yml up -d
+	$(COMPOSE) up -d
 
 up-build:
-	docker compose -f deploy/docker/compose.yml up -d --build
+	$(COMPOSE) up -d --build
 
 # Development
 dev:
-	docker compose -f deploy/docker/compose.yml -f deploy/docker/compose.override.yml up
+	$(COMPOSE) -f deploy/docker/compose.override.yml up
 
 dev-build:
-	docker compose -f deploy/docker/compose.yml -f deploy/docker/compose.override.yml up --build
+	$(COMPOSE) -f deploy/docker/compose.override.yml up --build
 
 # Stop
 down:
-	docker compose -f deploy/docker/compose.yml down
+	$(COMPOSE) down
 
 down-v:
-	docker compose -f deploy/docker/compose.yml down -v
+	$(COMPOSE) down -v
 
 # Build
 build:
-	docker compose -f deploy/docker/compose.yml build
+	$(COMPOSE) build
 
 # Logs
 logs:
-	docker compose -f deploy/docker/compose.yml logs -f app
+	$(COMPOSE) logs -f app
 
 # Shell access
 shell:
-	docker compose -f deploy/docker/compose.yml exec app bash
+	$(COMPOSE) exec app bash
 
 # Django commands
 migrate:
-	docker compose -f deploy/docker/compose.yml exec app python manage.py migrate
+	$(COMPOSE) exec app python manage.py migrate
 
 createsuperuser:
-	docker compose -f deploy/docker/compose.yml exec app python manage.py createsuperuser
+	$(COMPOSE) exec app python manage.py createsuperuser
