@@ -2,7 +2,23 @@
 
 This guide covers deploying Pemly on a Linux server with systemd and nginx.
 
-## Prerequisites
+## Quick Install
+
+Run the automated installer:
+
+```bash
+curl -sL https://raw.githubusercontent.com/TOMFoolery-Labs/pemly/main/deploy/systemd/install.sh | sudo bash
+```
+
+The script handles all installation steps including dependencies, database setup, and nginx configuration. See `install.sh --help` for options.
+
+---
+
+## Manual Installation
+
+The following sections describe the manual installation process.
+
+### Prerequisites
 
 - Linux server (Debian/Ubuntu, RHEL/Rocky, etc.)
 - Python 3.11+
@@ -10,7 +26,7 @@ This guide covers deploying Pemly on a Linux server with systemd and nginx.
 - nginx
 - CFSSL binary installed and in PATH
 
-### Install CFSSL
+#### Install CFSSL
 
 ```bash
 # Download latest release from https://github.com/cloudflare/cfssl/releases
@@ -20,15 +36,15 @@ curl -L -o /usr/local/bin/cfssljson https://github.com/cloudflare/cfssl/releases
 chmod +x /usr/local/bin/cfssl /usr/local/bin/cfssljson
 ```
 
-## Installation
+### Installation Steps
 
-### 1. Create System User
+#### 1. Create System User
 
 ```bash
 sudo useradd --system --home /opt/pemly --shell /usr/sbin/nologin pemly
 ```
 
-### 2. Install Application
+#### 2. Install Application
 
 ```bash
 # Create directory
@@ -49,7 +65,7 @@ sudo -u pemly python3 -m venv /opt/pemly/venv
 sudo -u pemly /opt/pemly/venv/bin/pip install -r /opt/pemly/requirements.txt
 ```
 
-### 3. Build Frontend Assets
+#### 3. Build Frontend Assets
 
 Pemly uses Tailwind CSS which must be built before deployment.
 
@@ -63,7 +79,7 @@ sudo -u pemly npm install
 sudo -u pemly npm run tailwind:prod
 ```
 
-### 4. Configure Environment
+#### 4. Configure Environment
 
 ```bash
 # Copy and edit environment file
@@ -85,7 +101,7 @@ python3 -c "from django.core.management.utils import get_random_secret_key; prin
 python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
 
-### 5. Initialize Database
+#### 5. Initialize Database
 
 ```bash
 # Run migrations
@@ -98,13 +114,13 @@ sudo -u pemly /opt/pemly/venv/bin/python /opt/pemly/manage.py createsuperuser
 sudo -u pemly /opt/pemly/venv/bin/python /opt/pemly/manage.py collectstatic --noinput
 ```
 
-### 6. Create Storage Directories
+#### 6. Create Storage Directories
 
 ```bash
 sudo -u pemly mkdir -p /opt/pemly/storage/certificates
 ```
 
-### 7. Install Systemd Service
+#### 7. Install Systemd Service
 
 ```bash
 # Install service file
@@ -125,7 +141,7 @@ sudo systemctl start pemly
 sudo systemctl status pemly
 ```
 
-### 8. Configure Nginx
+#### 8. Configure Nginx
 
 ```bash
 # Copy and customize nginx config
@@ -142,7 +158,7 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-### 9. SSL Certificate (Let's Encrypt)
+#### 9. SSL Certificate (Let's Encrypt)
 
 ```bash
 # Install certbot
@@ -157,7 +173,7 @@ sudo certbot certonly --nginx -d pemly.example.com
 sudo systemctl reload nginx
 ```
 
-## Management Commands
+### Management Commands
 
 ```bash
 # View logs
@@ -173,7 +189,7 @@ sudo systemctl status pemly
 sudo -u pemly /opt/pemly/venv/bin/python /opt/pemly/manage.py <command>
 ```
 
-## Upgrading
+### Upgrading
 
 ```bash
 # Pull updates
@@ -197,9 +213,9 @@ sudo -u pemly /opt/pemly/venv/bin/python manage.py collectstatic --noinput
 sudo systemctl restart pemly
 ```
 
-## Troubleshooting
+### Troubleshooting
 
-### Service won't start
+#### Service won't start
 
 ```bash
 # Check logs
@@ -209,19 +225,19 @@ sudo journalctl -u pemly -e
 sudo -u pemly /opt/pemly/venv/bin/gunicorn --bind 127.0.0.1:8000 pkife.wsgi:application
 ```
 
-### 502 Bad Gateway
+#### 502 Bad Gateway
 
 - Check if pemly service is running: `sudo systemctl status pemly`
 - Check socket exists: `ls -la /run/pemly/gunicorn.sock`
 - Check nginx can access socket (nginx user needs to be in pemly group or socket needs 777)
 
-### Static files not loading
+#### Static files not loading
 
 - Verify collectstatic was run: `ls /opt/pemly/staticfiles/`
 - Check nginx config paths match
 - Check file permissions
 
-### Database connection errors
+#### Database connection errors
 
 - Verify DATABASE_URL in /opt/pemly/.env
 - Test connection: `sudo -u pemly /opt/pemly/venv/bin/python manage.py dbshell`
