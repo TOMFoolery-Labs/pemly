@@ -27,6 +27,10 @@ urlpatterns = [
     path('ca/<uuid:pk>/remove-key/', views.CAKeyRemoveView.as_view(), name='ca_remove_key'),
     path('ca/<uuid:pk>/restore-key/', views.CAKeyRestoreView.as_view(), name='ca_restore_key'),
 
+    # OCSP Configuration
+    path('ca/<uuid:pk>/ocsp/', views.OCSPConfigView.as_view(), name='ca_ocsp_config'),
+    path('ca/<uuid:pk>/ocsp/generate/', views.OCSPGenerateCertView.as_view(), name='ca_ocsp_generate'),
+
     # Legacy CRL endpoint (backwards compatibility)
     path('crl/', views.CRLView.as_view(), name='crl_legacy'),
 
@@ -58,4 +62,8 @@ urlpatterns = [
     path('settings/backup/', views.BackupView.as_view(), name='backup'),
     path('settings/restore/upload/', views.RestoreUploadView.as_view(), name='restore_upload'),
     path('settings/restore/confirm/', views.RestoreConfirmView.as_view(), name='restore_confirm'),
+
+    # OCSP Responder (public, no auth required)
+    path('ocsp/<uuid:ca_id>/', views.OCSPResponderView.as_view(), name='ocsp_responder'),
+    path('ocsp/<uuid:ca_id>/<path:ocsp_request>', views.OCSPResponderGetView.as_view(), name='ocsp_responder_get'),
 ]

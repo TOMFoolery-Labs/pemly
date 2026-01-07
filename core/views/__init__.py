@@ -11,6 +11,8 @@ from .ca import (
     CAKeyRestoreView,
     IntermediateCACSRView,
     IntermediateCAImportView,
+    OCSPConfigView,
+    OCSPGenerateCertView,
 )
 from .certificates import (
     CertificateListView,
@@ -30,6 +32,7 @@ from .profiles import (
     ProfileDeleteView,
     ProfileDataView,
 )
+from .ocsp import OCSPResponderView, OCSPResponderGetView
 
 __all__ = [
     'DashboardView',
@@ -44,6 +47,8 @@ __all__ = [
     'CAKeyRestoreView',
     'IntermediateCACSRView',
     'IntermediateCAImportView',
+    'OCSPConfigView',
+    'OCSPGenerateCertView',
     'CertificateListView',
     'CertificateCreateView',
     'CertificateDetailView',
@@ -61,4 +66,6 @@ __all__ = [
     'BackupView',
     'RestoreUploadView',
     'RestoreConfirmView',
+    'OCSPResponderView',
+    'OCSPResponderGetView',
 ]
