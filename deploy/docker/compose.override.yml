@@ -1,14 +1,15 @@
 # Development overrides
 # This file is automatically loaded by docker compose
-# For production, use: docker compose -f docker-compose.yml up
+# For production, use: docker compose -f deploy/docker/compose.yml up
 
 services:
   app:
     build:
-      context: .
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
       target: builder  # Use builder stage for development
     volumes:
-      - .:/app
+      - ../..:/app
       - /app/node_modules  # Prevent overwriting node_modules
       - /app/staticfiles   # Prevent overwriting staticfiles
       - app_storage:/app/storage

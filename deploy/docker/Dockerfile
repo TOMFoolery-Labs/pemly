@@ -3,10 +3,17 @@ FROM python:3.12-slim AS builder
 
 WORKDIR /app
 
-# Install build dependencies
+# Install build dependencies and CFSSL (needed for dev mode)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     nodejs \
     npm \
+    curl \
+    ca-certificates \
+    && curl -L https://github.com/cloudflare/cfssl/releases/download/v1.6.5/cfssl_1.6.5_linux_amd64 -o /usr/local/bin/cfssl \
+    && curl -L https://github.com/cloudflare/cfssl/releases/download/v1.6.5/cfssljson_1.6.5_linux_amd64 -o /usr/local/bin/cfssljson \
+    && chmod +x /usr/local/bin/cfssl /usr/local/bin/cfssljson \
+    && apt-get remove -y curl \
+    && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
@@ -65,8 +72,8 @@ RUN useradd --create-home --shell /bin/bash pemly \
     && chown -R pemly:pemly /app
 
 # Copy and set up entrypoint
-COPY docker-entrypoint.sh /usr/local/bin/
-RUN chmod 755 /usr/local/bin/docker-entrypoint.sh
+COPY deploy/docker/entrypoint.sh /usr/local/bin/
+RUN chmod 755 /usr/local/bin/entrypoint.sh
 
 USER pemly
 
@@ -77,5 +84,5 @@ ENV PYTHONDONTWRITEBYTECODE=1
 
 EXPOSE 8000
 
-ENTRYPOINT ["docker-entrypoint.sh"]
+ENTRYPOINT ["entrypoint.sh"]
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "2", "--threads", "4", "--worker-class", "gthread", "pkife.wsgi:application"]

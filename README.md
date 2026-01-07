@@ -23,13 +23,19 @@ A Django web application that serves as a user-friendly frontend for CloudFlare'
 ## Project Structure
 
 ```
-pkife/
+pemly/
 ├── accounts/              # Authentication (login/logout)
 ├── core/                  # Main application
 │   ├── models.py          # CA, Certificate, AuditLog models
 │   ├── services/          # CFSSL API client
 │   │   └── cfssl.py
 │   └── views/             # Dashboard, CA, Certificates, Audit views
+├── deploy/                # Deployment configurations
+│   └── docker/            # Docker deployment
+│       ├── Dockerfile
+│       ├── compose.yml
+│       ├── compose.override.yml
+│       └── entrypoint.sh
 ├── pkife/
 │   └── settings/          # Split settings (base/dev/prod)
 ├── templates/             # Django templates
@@ -143,53 +149,65 @@ POSTGRES_PASSWORD=<strong-database-password>
 DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,your-domain.com
 ```
 
-### 2. Build and Start
-
-**Option A: With Docker PostgreSQL (default)**
+### 2. Start Development Server
 
 ```bash
-docker compose up -d --build
+make dev-build
 ```
 
-**Option B: With external database**
+This runs in development mode with:
+- Live code reload (local files mounted into container)
+- Django debug mode enabled
+- PostgreSQL port exposed on localhost:5432
+
+### 3. Start Production Server
+
+```bash
+make up-build
+```
+
+This runs in production mode with:
+- Gunicorn WSGI server (2 workers, 4 threads)
+- Optimized Docker image
+- Debug mode disabled
+
+**Using an external database:**
 
 ```bash
 # Set DATABASE_URL in .env:
 # DATABASE_URL=postgres://user:password@your-db-host:5432/pemly
 
 # Start only the app container
-docker compose up -d --build app
+docker compose -f deploy/docker/compose.yml up -d --build app
 ```
+
+### 4. Post-Start Setup
 
 ```bash
 # View logs
-docker compose logs -f app
+make logs
 
 # Create superuser
-docker compose exec app python manage.py createsuperuser
+make createsuperuser
 ```
 
-### 3. Access the Application
+### 5. Access the Application
 
 Visit http://localhost:8000 and log in with your superuser credentials.
 
 ### Docker Commands
 
 ```bash
-# Stop containers
-docker compose down
-
-# Stop and remove volumes (WARNING: deletes all data)
-docker compose down -v
-
-# Rebuild after code changes
-docker compose up -d --build
-
-# Run Django management commands
-docker compose exec app python manage.py <command>
-
-# Access container shell
-docker compose exec app bash
+make up           # Start production (detached)
+make up-build     # Start production with rebuild
+make dev          # Start development
+make dev-build    # Start development with rebuild
+make down         # Stop containers
+make down-v       # Stop and remove volumes (WARNING: deletes data)
+make logs         # Follow app logs
+make shell        # Access container shell
+make migrate      # Run database migrations
+make createsuperuser  # Create Django superuser
 ```
 
 ### Production Considerations
