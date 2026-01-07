@@ -143,6 +143,23 @@ class CertificateAuthority(models.Model):
     crl_generated_at = models.DateTimeField(null=True, blank=True)
     crl_next_update = models.DateTimeField(null=True, blank=True)
 
+    # OCSP Responder configuration
+    ocsp_responder_url = models.URLField(
+        blank=True,
+        help_text="URL of the OCSP responder for this CA (included in issued certificates)"
+    )
+    ocsp_certificate_pem = models.TextField(
+        blank=True,
+        help_text="OCSP signing certificate (delegated responder)"
+    )
+    ocsp_private_key_pem_encrypted = models.TextField(
+        blank=True,
+        help_text="Encrypted OCSP signing private key"
+    )
+    ocsp_serial_number = models.CharField(max_length=255, blank=True)
+    ocsp_not_before = models.DateTimeField(null=True, blank=True)
+    ocsp_not_after = models.DateTimeField(null=True, blank=True)
+
     # Audit fields
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(
@@ -174,6 +191,34 @@ class CertificateAuthority(models.Model):
             return ""
         f = Fernet(settings.ENCRYPTION_KEY.encode())
         return f.decrypt(self.private_key_pem_encrypted.encode()).decode()
+
+    def set_ocsp_private_key(self, plaintext_key: str) -> None:
+        """Encrypt and store the OCSP signing private key."""
+        if not settings.ENCRYPTION_KEY:
+            raise ValueError("ENCRYPTION_KEY not configured")
+        f = Fernet(settings.ENCRYPTION_KEY.encode())
+        self.ocsp_private_key_pem_encrypted = f.encrypt(plaintext_key.encode()).decode()
+
+    def get_ocsp_private_key(self) -> str:
+        """Decrypt and return the OCSP signing private key."""
+        if not settings.ENCRYPTION_KEY:
+            raise ValueError("ENCRYPTION_KEY not configured")
+        if not self.ocsp_private_key_pem_encrypted:
+            return ""
+        f = Fernet(settings.ENCRYPTION_KEY.encode())
+        return f.decrypt(self.ocsp_private_key_pem_encrypted.encode()).decode()
+
+    @property
+    def has_ocsp_responder(self) -> bool:
+        """Check if OCSP responder is configured for this CA."""
+        return bool(self.ocsp_certificate_pem and self.ocsp_private_key_pem_encrypted)
+
+    @property
+    def ocsp_is_expired(self) -> bool:
+        """Check if the OCSP signing certificate has expired."""
+        if not self.ocsp_not_after:
+            return False
+        return timezone.now() > self.ocsp_not_after
 
     @property
     def is_expired(self) -> bool:

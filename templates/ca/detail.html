@@ -219,6 +219,36 @@
         <a href="{% url 'core:certificate_list' %}?ca={{ ca.pk }}" class="btn-secondary w-full justify-center">
           View Certificates
         </a>
+        <a href="{% url 'core:ca_ocsp_config' pk=ca.pk %}" class="btn-secondary w-full justify-center">
+          OCSP Configuration
+        </a>
+      </div>
+    </div>
+
+    <!-- OCSP Status -->
+    <div class="card">
+      <div class="card-header flex items-center justify-between">
+        <h3 class="text-lg font-medium text-slate-900">OCSP</h3>
+        {% if ca.has_ocsp_responder %}
+          {% if ca.ocsp_is_expired %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">Expired</span>
+          {% else %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">Active</span>
+          {% endif %}
+        {% else %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600">Not Configured</span>
+        {% endif %}
+      </div>
+      <div class="card-body">
+        {% if ca.ocsp_responder_url %}
+          <p class="text-xs text-slate-500 mb-1">Responder URL</p>
+          <p class="text-sm text-slate-700 font-mono break-all">{{ ca.ocsp_responder_url }}</p>
+        {% else %}
+          <p class="text-sm text-slate-500">No OCSP responder URL configured.</p>
+        {% endif %}
+        <a href="{% url 'core:ca_ocsp_config' pk=ca.pk %}" class="text-sm text-blue-600 hover:text-blue-700 mt-2 inline-block">
+          Configure &rarr;
+        </a>
       </div>
     </div>
 

@@ -858,3 +858,99 @@ class IntermediateCAImportView(LoginRequiredMixin, View):
             messages.error(request, f"Error processing certificate: {e}")
 
         return render(request, self.template_name, {'ca': pending_ca})
+
+
+class OCSPConfigForm(forms.Form):
+    """Form for configuring OCSP responder settings."""
+
+    ocsp_responder_url = forms.URLField(
+        required=False,
+        help_text="URL of the OCSP responder (e.g., https://ocsp.example.com/ocsp/<ca-id>/)"
+    )
+
+
+class OCSPConfigView(LoginRequiredMixin, View):
+    """View for configuring OCSP responder settings."""
+
+    template_name = 'ca/ocsp_config.html'
+
+    def get(self, request, pk):
+        ca = get_object_or_404(CertificateAuthority, pk=pk)
+        form = OCSPConfigForm(initial={
+            'ocsp_responder_url': ca.ocsp_responder_url,
+        })
+        return render(request, self.template_name, {'ca': ca, 'form': form})
+
+    def post(self, request, pk):
+        ca = get_object_or_404(CertificateAuthority, pk=pk)
+        form = OCSPConfigForm(request.POST)
+
+        if form.is_valid():
+            ca.ocsp_responder_url = form.cleaned_data['ocsp_responder_url']
+            ca.save(update_fields=['ocsp_responder_url'])
+
+            messages.success(request, "OCSP configuration updated successfully.")
+            return redirect('core:ca_detail', pk=pk)
+
+        return render(request, self.template_name, {'ca': ca, 'form': form})
+
+
+class OCSPGenerateCertView(LoginRequiredMixin, View):
+    """View for generating or regenerating the OCSP signing certificate."""
+
+    def post(self, request, pk):
+        ca = get_object_or_404(CertificateAuthority, pk=pk)
+
+        if not ca.can_sign:
+            messages.error(
+                request,
+                "CA cannot sign certificates (missing key, expired, or air-gapped)"
+            )
+            return redirect('core:ca_ocsp_config', pk=pk)
+
+        try:
+            from core.services.ocsp import create_ocsp_signing_certificate
+
+            # Generate OCSP signing certificate
+            result = create_ocsp_signing_certificate(
+                ca=ca,
+                validity_days=365,  # 1 year
+                key_algorithm=ca.key_algorithm,
+                key_size=ca.key_size if ca.key_algorithm == 'rsa' else 256
+            )
+
+            # Save the OCSP signing certificate and key
+            ca.ocsp_certificate_pem = result['certificate']
+            ca.set_ocsp_private_key(result['private_key'])
+
+            # Parse certificate for serial and dates
+            try:
+                from cryptography import x509
+                cert = x509.load_pem_x509_certificate(result['certificate'].encode())
+                ca.ocsp_serial_number = format(cert.serial_number, 'x')
+                ca.ocsp_not_before = cert.not_valid_before_utc
+                ca.ocsp_not_after = cert.not_valid_after_utc
+            except Exception:
+                ca.ocsp_not_before = timezone.now()
+                ca.ocsp_not_after = timezone.now() + timedelta(days=365)
+
+            ca.save()
+
+            # Log the action
+            AuditLog.log(
+                action=AuditLog.Action.CA_UPDATED,
+                resource_type='certificate_authority',
+                resource_id=ca.id,
+                resource_name=ca.name,
+                user=request.user,
+                details={'action': 'ocsp_certificate_generated'},
+                ip_address=request.META.get('REMOTE_ADDR'),
+                user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
+            )
+
+            messages.success(request, "OCSP signing certificate generated successfully.")
+
+        except Exception as e:
+            messages.error(request, f"Failed to generate OCSP certificate: {e}")
+
+        return redirect('core:ca_ocsp_config', pk=pk)

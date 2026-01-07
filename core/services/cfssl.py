@@ -264,7 +264,9 @@ class CFSSLClient:
         ca_key: str,
         profile: str = "default",
         hosts: list[str] | None = None,
-        expiry: str = "8760h"
+        expiry: str = "8760h",
+        ocsp_url: str | None = None,
+        issuer_urls: list[str] | None = None
     ) -> dict[str, str]:
         """
         Sign a CSR with the CA using the CFSSL CLI.
@@ -276,39 +278,56 @@ class CFSSLClient:
             profile: Signing profile name
             hosts: Additional hostnames/IPs for the certificate
             expiry: Certificate validity period (default 1 year)
+            ocsp_url: OCSP responder URL to include in AIA extension
+            issuer_urls: CA issuer URLs to include in AIA extension
 
         Returns:
             Dictionary with 'certificate' PEM string
         """
+        # Base profile settings
+        default_settings = {
+            "expiry": expiry,
+            "usages": [
+                "signing",
+                "key encipherment",
+                "server auth",
+                "client auth"
+            ]
+        }
+        server_tls_settings = {
+            "expiry": expiry,
+            "usages": [
+                "signing",
+                "key encipherment",
+                "server auth"
+            ]
+        }
+        client_auth_settings = {
+            "expiry": expiry,
+            "usages": [
+                "signing",
+                "key encipherment",
+                "client auth"
+            ]
+        }
+
+        # Add AIA extension if OCSP URL or issuer URLs provided
+        if ocsp_url:
+            default_settings["ocsp_url"] = ocsp_url
+            server_tls_settings["ocsp_url"] = ocsp_url
+            client_auth_settings["ocsp_url"] = ocsp_url
+        if issuer_urls:
+            default_settings["issuer_urls"] = issuer_urls
+            server_tls_settings["issuer_urls"] = issuer_urls
+            client_auth_settings["issuer_urls"] = issuer_urls
+
         # Create config for signing profiles
         config = {
             "signing": {
-                "default": {
-                    "expiry": expiry,
-                    "usages": [
-                        "signing",
-                        "key encipherment",
-                        "server auth",
-                        "client auth"
-                    ]
-                },
+                "default": default_settings,
                 "profiles": {
-                    "server_tls": {
-                        "expiry": expiry,
-                        "usages": [
-                            "signing",
-                            "key encipherment",
-                            "server auth"
-                        ]
-                    },
-                    "client_auth": {
-                        "expiry": expiry,
-                        "usages": [
-                            "signing",
-                            "key encipherment",
-                            "client auth"
-                        ]
-                    }
+                    "server_tls": server_tls_settings,
+                    "client_auth": client_auth_settings
                 }
             }
         }
@@ -327,19 +346,21 @@ class CFSSLClient:
             config_file.write_text(json.dumps(config))
             csr_file.write_text(csr)
 
-            # Build command
+            # Build command - CSR file must come last (after all flags)
             args = [
                 "sign",
                 "-ca", str(ca_cert_file),
                 "-ca-key", str(ca_key_file),
                 "-config", str(config_file),
                 "-profile", profile,
-                str(csr_file),
             ]
 
             # Add hosts if provided
             if hosts:
                 args.extend(["-hostname", ",".join(hosts)])
+
+            # CSR file must be the last argument (positional)
+            args.append(str(csr_file))
 
             output = self._run_cli(args)
 
@@ -419,6 +440,85 @@ class CFSSLClient:
                 "-ca-key", str(ca_key_file),
                 "-config", str(config_file),
                 "-profile", "intermediate_ca",
+                str(csr_file),
+            ]
+
+            output = self._run_cli(args)
+
+            # Parse JSON output
+            try:
+                result = json.loads(output)
+                return {
+                    'certificate': result.get('cert', ''),
+                }
+            except json.JSONDecodeError as e:
+                raise CFSSLError(f"Failed to parse CFSSL output: {e}")
+
+    def sign_ocsp_responder(
+        self,
+        csr: str,
+        ca_cert: str,
+        ca_key: str,
+        expiry: str = "8760h"  # 1 year default
+    ) -> dict[str, str]:
+        """
+        Sign an OCSP responder certificate using the CFSSL CLI.
+
+        The OCSP responder certificate is a delegated signer that can sign
+        OCSP responses on behalf of the CA. It includes the id-kp-OCSPSigning
+        extended key usage.
+
+        Args:
+            csr: PEM-encoded CSR for the OCSP responder
+            ca_cert: PEM-encoded CA certificate
+            ca_key: PEM-encoded CA private key
+            expiry: Certificate validity period (default 1 year)
+
+        Returns:
+            Dictionary with 'certificate' PEM string
+        """
+        # Create config with OCSP responder profile
+        # OID 1.3.6.1.5.5.7.3.9 = id-kp-OCSPSigning
+        # OID 1.3.6.1.5.5.7.48.1.5 = id-pkix-ocsp-nocheck (OCSP No Check extension)
+        config = {
+            "signing": {
+                "default": {
+                    "expiry": expiry,
+                },
+                "profiles": {
+                    "ocsp_responder": {
+                        "expiry": expiry,
+                        "usages": [
+                            "digital signature",
+                            "ocsp signing"
+                        ],
+                        "ocsp_no_check": True
+                    }
+                }
+            }
+        }
+
+        # Use temp files for CA cert, key, config, and CSR
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+
+            ca_cert_file = tmppath / "ca.pem"
+            ca_key_file = tmppath / "ca-key.pem"
+            config_file = tmppath / "config.json"
+            csr_file = tmppath / "csr.pem"
+
+            ca_cert_file.write_text(ca_cert)
+            ca_key_file.write_text(ca_key)
+            config_file.write_text(json.dumps(config))
+            csr_file.write_text(csr)
+
+            # Build command
+            args = [
+                "sign",
+                "-ca", str(ca_cert_file),
+                "-ca-key", str(ca_key_file),
+                "-config", str(config_file),
+                "-profile", "ocsp_responder",
                 str(csr_file),
             ]
 

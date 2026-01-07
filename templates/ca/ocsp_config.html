@@ -1,0 +1,158 @@
+{% extends 'base.html' %}
+
+{% block title %}OCSP Configuration{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+  <nav class="text-sm text-slate-500 mb-2">
+    <a href="{% url 'core:ca_list' %}" class="hover:text-slate-700">Certificate Authorities</a>
+    <span class="mx-2">/</span>
+    <a href="{% url 'core:ca_detail' pk=ca.pk %}" class="hover:text-slate-700">{{ ca.name }}</a>
+    <span class="mx-2">/</span>
+    <span class="text-slate-900">OCSP Configuration</span>
+  </nav>
+  <h1 class="text-2xl font-semibold text-slate-900">OCSP Responder Configuration</h1>
+  <p class="mt-1 text-sm text-slate-500">
+    Configure OCSP (Online Certificate Status Protocol) for <strong>{{ ca.name }}</strong>
+  </p>
+</div>
+
+<div class="max-w-2xl">
+  <!-- Info -->
+  <div class="alert-info mb-6">
+    <div class="flex">
+      <svg class="h-5 w-5 text-blue-500 mr-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+      </svg>
+      <div>
+        <h3 class="text-sm font-medium text-blue-800">About OCSP</h3>
+        <p class="text-sm text-blue-700 mt-1">
+          OCSP allows clients to check certificate revocation status in real-time.
+          Certificates issued by this CA will include the OCSP responder URL if configured.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- OCSP Signing Certificate Status -->
+  <div class="card mb-6">
+    <div class="card-header">
+      <h2 class="text-lg font-medium text-slate-900">OCSP Signing Certificate</h2>
+    </div>
+    <div class="card-body">
+      {% if ca.has_ocsp_responder %}
+        <div class="flex items-start gap-3 mb-4">
+          <div class="flex-shrink-0">
+            {% if ca.ocsp_is_expired %}
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                Expired
+              </span>
+            {% else %}
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                Active
+              </span>
+            {% endif %}
+          </div>
+          <div class="flex-1">
+            <dl class="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <dt class="text-slate-500">Serial Number</dt>
+                <dd class="font-mono text-slate-900">{{ ca.ocsp_serial_number|truncatechars:20 }}</dd>
+              </div>
+              <div>
+                <dt class="text-slate-500">Valid Until</dt>
+                <dd class="text-slate-900">{{ ca.ocsp_not_after|date:"M d, Y" }}</dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+        <form method="post" action="{% url 'core:ca_ocsp_generate' pk=ca.pk %}">
+          {% csrf_token %}
+          <button type="submit" class="btn-secondary text-sm"
+                  onclick="return confirm('This will replace the existing OCSP signing certificate. Continue?')">
+            Regenerate Certificate
+          </button>
+        </form>
+      {% else %}
+        <p class="text-sm text-slate-600 mb-4">
+          No OCSP signing certificate has been generated yet.
+          Generate one to enable OCSP responses for this CA.
+        </p>
+        {% if ca.can_sign %}
+          <form method="post" action="{% url 'core:ca_ocsp_generate' pk=ca.pk %}">
+            {% csrf_token %}
+            <button type="submit" class="btn-primary">
+              Generate OCSP Certificate
+            </button>
+          </form>
+        {% else %}
+          <p class="text-sm text-amber-600">
+            Cannot generate OCSP certificate: CA is unable to sign (air-gapped, expired, or missing private key).
+          </p>
+        {% endif %}
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- OCSP URL Configuration -->
+  <form method="post">
+    {% csrf_token %}
+    <div class="card mb-6">
+      <div class="card-header">
+        <h2 class="text-lg font-medium text-slate-900">Responder URL</h2>
+      </div>
+      <div class="card-body">
+        <p class="text-sm text-slate-600 mb-4">
+          The OCSP responder URL will be embedded in certificates issued by this CA.
+          Use the built-in responder URL below, or configure a custom URL if you're using a proxy.
+        </p>
+
+        <div class="mb-4 p-3 bg-slate-50 rounded-lg">
+          <label class="block text-xs font-medium text-slate-500 mb-1">Built-in Responder URL</label>
+          <code class="text-sm text-slate-700">{{ request.scheme }}://{{ request.get_host }}/ocsp/{{ ca.pk }}/</code>
+        </div>
+
+        <div class="mb-4">
+          <label for="id_ocsp_responder_url" class="block text-sm font-medium text-slate-700 mb-1">
+            OCSP Responder URL
+          </label>
+          <input type="url" name="ocsp_responder_url" id="id_ocsp_responder_url"
+                 value="{{ form.ocsp_responder_url.value|default:'' }}"
+                 class="form-input block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                 placeholder="https://ocsp.example.com/ocsp/{{ ca.pk }}/">
+          <p class="mt-1 text-xs text-slate-500">
+            {{ form.ocsp_responder_url.help_text }}
+          </p>
+          {% if form.ocsp_responder_url.errors %}
+            <p class="mt-1 text-xs text-red-600">{{ form.ocsp_responder_url.errors.0 }}</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="flex items-center justify-end gap-3">
+      <a href="{% url 'core:ca_detail' pk=ca.pk %}" class="btn-secondary">Cancel</a>
+      <button type="submit" class="btn-primary">
+        Save Configuration
+      </button>
+    </div>
+  </form>
+
+  {% if ca.has_ocsp_responder and ca.ocsp_responder_url %}
+  <!-- Test Instructions -->
+  <div class="card mt-6">
+    <div class="card-header">
+      <h2 class="text-lg font-medium text-slate-900">Testing OCSP</h2>
+    </div>
+    <div class="card-body">
+      <p class="text-sm text-slate-600 mb-4">
+        You can test the OCSP responder using OpenSSL:
+      </p>
+      <pre class="bg-slate-800 text-slate-100 p-4 rounded-lg text-xs overflow-x-auto">openssl ocsp -issuer ca.crt -cert certificate.crt \
+  -url {{ ca.ocsp_responder_url }} \
+  -resp_text</pre>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

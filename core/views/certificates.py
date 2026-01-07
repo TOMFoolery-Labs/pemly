@@ -280,6 +280,7 @@ class CertificateCreateView(LoginRequiredMixin, View):
                     profile=profile,
                     hosts=hosts,
                     expiry=f"{validity_hours}h",
+                    ocsp_url=ca.ocsp_responder_url if ca.ocsp_responder_url else None,
                 )
 
                 # Create certificate record
