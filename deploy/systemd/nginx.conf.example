@@ -1,0 +1,67 @@
+# Pemly Nginx Configuration
+# Install to /etc/nginx/sites-available/pemly and symlink to sites-enabled
+
+upstream pemly {
+    server unix:/run/pemly/gunicorn.sock fail_timeout=0;
+}
+
+# Redirect HTTP to HTTPS
+server {
+    listen 80;
+    listen [::]:80;
+    server_name pemly.example.com;
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name pemly.example.com;
+
+    # SSL Configuration
+    ssl_certificate /etc/letsencrypt/live/pemly.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/pemly.example.com/privkey.pem;
+    ssl_session_timeout 1d;
+    ssl_session_cache shared:SSL:50m;
+    ssl_session_tickets off;
+
+    # Modern SSL configuration
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers off;
+
+    # HSTS (uncomment after confirming HTTPS works)
+    # add_header Strict-Transport-Security "max-age=63072000" always;
+
+    # Security headers
+    add_header X-Frame-Options "DENY" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+    # Logging
+    access_log /var/log/nginx/pemly_access.log;
+    error_log /var/log/nginx/pemly_error.log;
+
+    # Static files - served directly by nginx
+    location /static/ {
+        alias /opt/pemly/staticfiles/;
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # Proxy to gunicorn
+    location / {
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_redirect off;
+        proxy_pass http://pemly;
+    }
+
+    # Deny access to hidden files
+    location ~ /\. {
+        deny all;
+    }
+}
