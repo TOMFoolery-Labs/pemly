@@ -1,0 +1,31 @@
+[Unit]
+Description=Pemly Certificate Manager
+Documentation=https://github.com/TOMFoolery-Labs/pemly
+After=network.target
+Wants=network.target
+
+[Service]
+Type=notify
+User=pemly
+Group=pemly
+RuntimeDirectory=pemly
+WorkingDirectory=/opt/pemly
+EnvironmentFile=/opt/pemly/.env
+Environment=DJANGO_SETTINGS_MODULE=pkife.settings.production
+ExecStart=/opt/pemly/venv/bin/gunicorn \
+    --bind unix:/run/pemly/gunicorn.sock \
+    --workers 3 \
+    --timeout 120 \
+    --access-logfile - \
+    --error-logfile - \
+    --capture-output \
+    pkife.wsgi:application
+ExecReload=/bin/kill -s HUP $MAINPID
+KillMode=mixed
+TimeoutStopSec=5
+PrivateTmp=true
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
