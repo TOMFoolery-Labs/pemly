@@ -14,6 +14,7 @@
 #   --skip-db         Skip database setup (use existing database)
 #   --skip-nginx      Skip nginx configuration
 #   --non-interactive Run without prompts (requires env vars or defaults)
+#   --force           Force fresh clone even if directory exists (preserves .env)
 #   --uninstall       Remove Pemly installation
 #   -h, --help        Show this help message
 # =============================================================================
@@ -280,14 +281,26 @@ install_application() {
                  --exclude='db.sqlite3' \
                  --exclude='staticfiles' \
                  "${repo_root}/" "${INSTALL_DIR}/"
-    elif [[ -d "${INSTALL_DIR}/.git" ]]; then
+    elif [[ -d "${INSTALL_DIR}/.git" ]] && [[ "${FORCE_INSTALL}" != "true" ]]; then
         log_info "Updating existing installation..."
         cd "${INSTALL_DIR}"
         git pull
     else
         log_info "Cloning from ${REPO_URL}..."
-        rm -rf "${INSTALL_DIR:?}"/*
+        # Preserve .env if it exists
+        local saved_env=""
+        if [[ -f "${INSTALL_DIR}/.env" ]]; then
+            log_info "Preserving existing .env file..."
+            saved_env=$(cat "${INSTALL_DIR}/.env")
+        fi
+        # Remove existing directory and clone fresh
+        rm -rf "${INSTALL_DIR:?}"
         git clone "${REPO_URL}" "${INSTALL_DIR}"
+        # Restore .env if it was saved
+        if [[ -n "${saved_env}" ]]; then
+            echo "${saved_env}" > "${INSTALL_DIR}/.env"
+            log_info "Restored .env file"
+        fi
     fi
 
     chown -R "${PEMLY_USER}:${PEMLY_GROUP}" "${INSTALL_DIR}"
@@ -661,7 +674,7 @@ uninstall() {
 # =============================================================================
 
 show_help() {
-    head -23 "$0" | tail -18
+    head -24 "$0" | tail -19
     exit 0
 }
 
@@ -672,6 +685,7 @@ parse_args() {
     SKIP_SSL=false
     NON_INTERACTIVE=false
     DO_UNINSTALL=false
+    FORCE_INSTALL=false
     SSL_CONFIGURED=false
 
     while [[ $# -gt 0 ]]; do
@@ -681,6 +695,7 @@ parse_args() {
             --skip-db)        SKIP_DB=true ;;
             --skip-nginx)     SKIP_NGINX=true ;;
             --non-interactive) NON_INTERACTIVE=true ;;
+            --force)          FORCE_INSTALL=true ;;
             --uninstall)      DO_UNINSTALL=true ;;
             -h|--help)        show_help ;;
             *)                die "Unknown option: $1" ;;
