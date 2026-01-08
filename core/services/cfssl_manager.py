@@ -161,7 +161,14 @@ class CFSSLManager:
             url = f"http://{self._host}:{self._port}/api/v1/cfssl/health"
             response = requests.get(url, timeout=5)
             return response.status_code == 200
-        except Exception:
+        except requests.exceptions.Timeout:
+            logger.warning("CFSSL health check timed out (>5s)")
+            return False
+        except requests.exceptions.ConnectionError as e:
+            logger.warning(f"CFSSL health check connection error: {e}")
+            return False
+        except Exception as e:
+            logger.warning(f"CFSSL health check error: {type(e).__name__}: {e}")
             return False
 
     def start(self, host: str | None = None, port: int | None = None,
@@ -329,11 +336,16 @@ class CFSSLManager:
                 break
 
             if not self.is_running():
-                logger.warning("CFSSL process is not running")
+                logger.warning("CFSSL process is not running (process exited)")
                 consecutive_failures = max_consecutive_failures
             elif not self.health_check():
                 consecutive_failures += 1
-                logger.warning(f"CFSSL health check failed ({consecutive_failures}/{max_consecutive_failures})")
+                # Log process status for debugging
+                pid = self._process.pid if self._process else None
+                logger.warning(
+                    f"CFSSL health check failed ({consecutive_failures}/{max_consecutive_failures}) "
+                    f"[PID={pid}, process_alive={self.is_running()}]"
+                )
             else:
                 consecutive_failures = 0
 
@@ -348,12 +360,35 @@ class CFSSLManager:
                 else:
                     break
 
+    def _find_cfssl_pid(self) -> int | None:
+        """Find the PID of a running CFSSL process."""
+        # If we own the process, return its PID
+        if self._process and self.is_running():
+            return self._process.pid
+        # Otherwise try to find it via pgrep
+        try:
+            result = subprocess.run(
+                ['pgrep', '-f', 'cfssl serve'],
+                capture_output=True,
+                text=True,
+                timeout=2,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                # Return first PID if multiple found
+                return int(result.stdout.strip().split()[0])
+        except Exception:
+            pass
+        return None
+
     def get_status(self) -> dict:
         """Get current status of CFSSL manager."""
+        # Check actual health - works across all workers regardless of which one
+        # started CFSSL (only one worker owns self._process)
+        healthy = self.health_check()
         return {
-            'running': self.is_running(),
-            'healthy': self.health_check() if self.is_running() else False,
-            'pid': self._process.pid if self._process else None,
+            'running': healthy,  # If healthy, it's running
+            'healthy': healthy,
+            'pid': self._find_cfssl_pid() if healthy else None,
             'binary_path': self._binary_path,
             'host': self._host,
             'port': self._port,

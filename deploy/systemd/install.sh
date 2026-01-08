@@ -29,7 +29,7 @@ INSTALL_DIR="/opt/pemly"
 VENV_DIR="${INSTALL_DIR}/venv"
 STORAGE_DIR="${INSTALL_DIR}/storage/certificates"
 CFSSL_VERSION="1.6.5"
-REPO_URL="https://github.com/TOMFoolery-Labs/pemly.git"
+REPO_URL="git@github.com:TOMFoolery-Labs/pemly.git"
 
 # Colors for output
 RED='\033[0;31m'
@@ -283,11 +283,11 @@ install_application() {
     elif [[ -d "${INSTALL_DIR}/.git" ]]; then
         log_info "Updating existing installation..."
         cd "${INSTALL_DIR}"
-        sudo -u "${PEMLY_USER}" git pull
+        git pull
     else
         log_info "Cloning from ${REPO_URL}..."
         rm -rf "${INSTALL_DIR:?}"/*
-        sudo -u "${PEMLY_USER}" git clone "${REPO_URL}" "${INSTALL_DIR}"
+        git clone "${REPO_URL}" "${INSTALL_DIR}"
     fi
 
     chown -R "${PEMLY_USER}:${PEMLY_GROUP}" "${INSTALL_DIR}"
