@@ -468,18 +468,18 @@ setup_database() {
 
 create_superuser() {
     if [[ "${NON_INTERACTIVE}" == "true" ]]; then
-        log_warn "Skipping superuser creation in non-interactive mode"
-        log_info "Create superuser manually: sudo -u ${PEMLY_USER} ${VENV_DIR}/bin/python ${INSTALL_DIR}/manage.py createsuperuser"
+        log_warn "Skipping admin user creation in non-interactive mode"
+        log_info "Create manually: sudo -u ${PEMLY_USER} ${VENV_DIR}/bin/python ${INSTALL_DIR}/manage.py createsuperuser"
         return
     fi
 
     echo
-    if prompt_yes_no "Create Django superuser now?"; then
+    if prompt_yes_no "Create admin user now?"; then
         cd "${INSTALL_DIR}"
         # Use PYTHONUNBUFFERED to ensure prompts display immediately
         sudo -u "${PEMLY_USER}" PYTHONUNBUFFERED=1 "${VENV_DIR}/bin/python" manage.py createsuperuser < /dev/tty
     else
-        log_info "Skipping superuser creation"
+        log_info "Skipping admin user creation"
         log_info "Create later: sudo -u ${PEMLY_USER} ${VENV_DIR}/bin/python ${INSTALL_DIR}/manage.py createsuperuser"
     fi
 }
