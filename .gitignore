@@ -64,9 +64,11 @@ db.sqlite3-journal
 *.pot
 *.pyc
 
-# Static files
+# Static files (Django collectstatic output)
 staticfiles/
-static/
+
+# Tailwind CSS build output (generated from input.css)
+static/css/output.css
 
 # Media files
 media/
