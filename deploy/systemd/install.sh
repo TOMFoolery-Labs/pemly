@@ -431,23 +431,30 @@ EOF
 }
 
 setup_database() {
-    log_info "Setting up PostgreSQL database..."
+    log_info "Setting up database..."
 
-    # Check if database exists
-    if sudo -u postgres psql -lqt | cut -d \| -f 1 | grep -qw "${DB_NAME}"; then
-        log_info "Database '${DB_NAME}' already exists"
+    # Only create local database if using localhost
+    if [[ "${DB_HOST}" == "localhost" ]] || [[ "${DB_HOST}" == "127.0.0.1" ]]; then
+        log_info "Setting up local PostgreSQL database..."
+
+        # Check if database exists
+        if sudo -u postgres psql -lqt | cut -d \| -f 1 | grep -qw "${DB_NAME}"; then
+            log_info "Database '${DB_NAME}' already exists"
+        else
+            # Create database user
+            sudo -u postgres psql -c "CREATE USER ${DB_USER} WITH PASSWORD '${DB_PASSWORD}';" 2>/dev/null || \
+                log_info "User '${DB_USER}' may already exist"
+
+            # Create database
+            sudo -u postgres psql -c "CREATE DATABASE ${DB_NAME} OWNER ${DB_USER};"
+
+            # Grant privileges
+            sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE ${DB_NAME} TO ${DB_USER};"
+
+            log_success "Database '${DB_NAME}' created"
+        fi
     else
-        # Create database user
-        sudo -u postgres psql -c "CREATE USER ${DB_USER} WITH PASSWORD '${DB_PASSWORD}';" 2>/dev/null || \
-            log_info "User '${DB_USER}' may already exist"
-
-        # Create database
-        sudo -u postgres psql -c "CREATE DATABASE ${DB_NAME} OWNER ${DB_USER};"
-
-        # Grant privileges
-        sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE ${DB_NAME} TO ${DB_USER};"
-
-        log_success "Database '${DB_NAME}' created"
+        log_info "Using external database at ${DB_HOST}"
     fi
 
     # Run migrations
