@@ -98,6 +98,11 @@
 
         {% block content %}{% endblock %}
       </main>
+      <footer class="border-t border-slate-200 bg-white">
+        <div class="flex items-center justify-end px-6 py-3 text-xs text-slate-500">
+          <a href="https://github.com/TOMFoolery-Labs/pemly" class="hover:text-slate-900">Source</a>
+        </div>
+      </footer>
     </div>
   </div>
   {% else %}
@@ -105,6 +110,11 @@
   <div class="min-h-full flex flex-col justify-center py-12 sm:px-6 lg:px-8">
     {% block auth_content %}{% endblock %}
   </div>
+  <footer class="border-t border-slate-200 bg-white">
+    <div class="flex items-center justify-center px-6 py-3 text-xs text-slate-500">
+      <a href="https://github.com/TOMFoolery-Labs/pemly" class="hover:text-slate-900">Source</a>
+    </div>
+  </footer>
   {% endif %}
 
   {% block extra_js %}{% endblock %}

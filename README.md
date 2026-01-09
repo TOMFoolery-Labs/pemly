@@ -355,4 +355,4 @@ See `PROJECT_PLAN.md` for the full implementation plan.
 
 ## License
 
-[Add your license here]
+Licensed under the GNU Affero General Public License v3.0. See `LICENSE`.
