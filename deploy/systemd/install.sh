@@ -30,7 +30,7 @@ INSTALL_DIR="/opt/pemly"
 VENV_DIR="${INSTALL_DIR}/venv"
 STORAGE_DIR="${INSTALL_DIR}/storage/certificates"
 CFSSL_VERSION="1.6.5"
-REPO_URL="git@github.com:TOMFoolery-Labs/pemly.git"
+REPO_URL="https://github.com/TOMFoolery-Labs/pemly.git"
 
 # Colors for output
 RED='\033[0;31m'
