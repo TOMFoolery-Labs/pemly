@@ -7,13 +7,13 @@ This guide covers deploying Pemly on a Linux server with systemd and nginx.
 Run the automated installer (includes Let's Encrypt SSL by default):
 
 ```bash
-curl -sL https://raw.githubusercontent.com/TOMFoolery-Labs/pemly/main/deploy/systemd/install.sh | sudo bash
+sudo /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/TOMFoolery-Labs/pemly/main/deploy/systemd/install.sh)"
 ```
 
 To skip SSL setup and use HTTP only:
 
 ```bash
-curl -sL https://raw.githubusercontent.com/TOMFoolery-Labs/pemly/main/deploy/systemd/install.sh | sudo bash -s -- --no-ssl
+sudo /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/TOMFoolery-Labs/pemly/main/deploy/systemd/install.sh)" -- --no-ssl
 ```
 
 The script handles all installation steps including dependencies, database setup, nginx, and SSL configuration. See `install.sh --help` for options.
