@@ -453,7 +453,7 @@ setup_database() {
     # Run migrations
     log_info "Running database migrations..."
     cd "${INSTALL_DIR}"
-    sudo -u "${PEMLY_USER}" "${VENV_DIR}/bin/python" manage.py migrate
+    sudo -u "${PEMLY_USER}" DJANGO_SETTINGS_MODULE=pkife.settings.production "${VENV_DIR}/bin/python" manage.py migrate
 
     # Create storage directory
     mkdir -p "${STORAGE_DIR}"
@@ -461,7 +461,7 @@ setup_database() {
 
     # Collect static files
     log_info "Collecting static files..."
-    sudo -u "${PEMLY_USER}" "${VENV_DIR}/bin/python" manage.py collectstatic --noinput
+    sudo -u "${PEMLY_USER}" DJANGO_SETTINGS_MODULE=pkife.settings.production "${VENV_DIR}/bin/python" manage.py collectstatic --noinput
 
     log_success "Database setup complete"
 }
@@ -477,7 +477,7 @@ create_superuser() {
     if prompt_yes_no "Create admin user now?"; then
         cd "${INSTALL_DIR}"
         # Use PYTHONUNBUFFERED to ensure prompts display immediately
-        sudo -u "${PEMLY_USER}" PYTHONUNBUFFERED=1 "${VENV_DIR}/bin/python" manage.py createsuperuser < /dev/tty
+        sudo -u "${PEMLY_USER}" DJANGO_SETTINGS_MODULE=pkife.settings.production PYTHONUNBUFFERED=1 "${VENV_DIR}/bin/python" manage.py createsuperuser < /dev/tty
     else
         log_info "Skipping admin user creation"
         log_info "Create later: sudo -u ${PEMLY_USER} ${VENV_DIR}/bin/python ${INSTALL_DIR}/manage.py createsuperuser"
