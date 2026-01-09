@@ -476,7 +476,8 @@ create_superuser() {
     echo
     if prompt_yes_no "Create Django superuser now?"; then
         cd "${INSTALL_DIR}"
-        sudo -u "${PEMLY_USER}" "${VENV_DIR}/bin/python" manage.py createsuperuser
+        # Use PYTHONUNBUFFERED to ensure prompts display immediately
+        sudo -u "${PEMLY_USER}" PYTHONUNBUFFERED=1 "${VENV_DIR}/bin/python" manage.py createsuperuser < /dev/tty
     else
         log_info "Skipping superuser creation"
         log_info "Create later: sudo -u ${PEMLY_USER} ${VENV_DIR}/bin/python ${INSTALL_DIR}/manage.py createsuperuser"
