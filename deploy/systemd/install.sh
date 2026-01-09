@@ -114,10 +114,12 @@ prompt_yes_no() {
 
     local yn
     if [[ "${default}" == "y" ]]; then
-        read -rp "${prompt} [Y/n]: " yn
+        echo -n "${prompt} [Y/n]: "
+        read -r yn < /dev/tty
         yn="${yn:-y}"
     else
-        read -rp "${prompt} [y/N]: " yn
+        echo -n "${prompt} [y/N]: "
+        read -r yn < /dev/tty
         yn="${yn:-n}"
     fi
 
@@ -135,7 +137,8 @@ prompt_input() {
     fi
 
     local input
-    read -rp "${prompt} [${default}]: " input
+    echo -n "${prompt} [${default}]: "
+    read -r input < /dev/tty
     eval "${var_name}=\"${input:-${default}}\""
 }
 
@@ -149,7 +152,8 @@ prompt_secret() {
     fi
 
     local input
-    read -rsp "${prompt}: " input
+    echo -n "${prompt}: "
+    read -rs input < /dev/tty
     echo
     eval "${var_name}=\"${input}\""
 }
