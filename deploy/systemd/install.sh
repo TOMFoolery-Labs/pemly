@@ -103,6 +103,19 @@ detect_os() {
     log_info "Detected OS: ${OS_NAME}"
 }
 
+check_interactive() {
+    if [[ "${NON_INTERACTIVE}" == "true" ]]; then
+        return 1
+    fi
+    if [[ ! -t 0 ]] && [[ ! -e /dev/tty ]]; then
+        log_error "No interactive terminal available."
+        log_error "When running via 'curl | bash', use --non-interactive flag"
+        log_error "or download and run the script directly."
+        exit 1
+    fi
+    return 0
+}
+
 prompt_yes_no() {
     local prompt="$1"
     local default="${2:-y}"
@@ -115,11 +128,11 @@ prompt_yes_no() {
     local yn
     if [[ "${default}" == "y" ]]; then
         echo -n "${prompt} [Y/n]: "
-        read -r yn < /dev/tty
+        read -r yn < /dev/tty || yn=""
         yn="${yn:-y}"
     else
         echo -n "${prompt} [y/N]: "
-        read -r yn < /dev/tty
+        read -r yn < /dev/tty || yn=""
         yn="${yn:-n}"
     fi
 
@@ -138,7 +151,7 @@ prompt_input() {
 
     local input
     echo -n "${prompt} [${default}]: "
-    read -r input < /dev/tty
+    read -r input < /dev/tty || input=""
     eval "${var_name}=\"${input:-${default}}\""
 }
 
@@ -153,7 +166,7 @@ prompt_secret() {
 
     local input
     echo -n "${prompt}: "
-    read -rs input < /dev/tty
+    read -rs input < /dev/tty || input=""
     echo
     eval "${var_name}=\"${input}\""
 }
@@ -716,6 +729,18 @@ main() {
 
     check_root
     detect_os
+
+    # Check if interactive input is available (unless --non-interactive)
+    if [[ "${NON_INTERACTIVE}" != "true" ]]; then
+        if ! exec 3< /dev/tty 2>/dev/null; then
+            log_error "No interactive terminal available for prompts."
+            log_error "Options:"
+            log_error "  1. Download script first: curl -O <url>/install.sh && sudo bash install.sh"
+            log_error "  2. Use non-interactive mode: curl <url>/install.sh | sudo bash -s -- --non-interactive"
+            exit 1
+        fi
+        exec 3<&-
+    fi
 
     if [[ "${DO_UNINSTALL}" == "true" ]]; then
         uninstall
