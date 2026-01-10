@@ -13,11 +13,13 @@ class CoreConfig(AppConfig):
 
     def ready(self):
         """Called when Django app is ready."""
-        # Don't start CFSSL in these scenarios:
-        # - Running migrations
-        # - Running other management commands (except runserver)
-        # - In the reloader's parent process
-        if any(cmd in sys.argv for cmd in ['migrate', 'makemigrations', 'collectstatic', 'shell', 'test']):
+        # Don't start CFSSL for management commands (except runserver)
+        skip_commands = [
+            'migrate', 'makemigrations', 'collectstatic', 'shell', 'test',
+            'createsuperuser', 'changepassword', 'check', 'showmigrations',
+            'dbshell', 'inspectdb', 'flush', 'dumpdata', 'loaddata',
+        ]
+        if any(cmd in sys.argv for cmd in skip_commands):
             return
 
         # In development, Django runs the reloader which spawns a child process.
