@@ -51,13 +51,23 @@ pemly/
     └── certificates/      # Filesystem certificate storage
 ```
 
-## Prerequisites
+## Server Installation
+
+Deploy on a Linux server with a single command:
+
+```bash
+sudo /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/TOMFoolery-Labs/pemly/main/deploy/systemd/install.sh)"
+```
+
+This installs Pemly with systemd, nginx, and Let's Encrypt SSL. See [deploy/systemd/INSTALL.md](deploy/systemd/INSTALL.md) for options and manual installation.
+
+## Local Development
+
+### Prerequisites
 
 - Python 3.11+
 - Node.js (for Tailwind CSS compilation)
 - CFSSL (`brew install cfssl` on macOS)
-
-## Quick Start
 
 ### 1. Clone and Set Up Python Environment
 
