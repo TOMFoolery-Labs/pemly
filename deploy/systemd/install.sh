@@ -483,8 +483,8 @@ create_superuser() {
     echo
     if prompt_yes_no "Create admin user now?"; then
         cd "${INSTALL_DIR}"
-        # Use PYTHONUNBUFFERED to ensure prompts display immediately
-        sudo -u "${PEMLY_USER}" DJANGO_SETTINGS_MODULE=pkife.settings.production PYTHONUNBUFFERED=1 "${VENV_DIR}/bin/python" manage.py createsuperuser < /dev/tty
+        # Redirect all I/O to terminal so Django prompts display correctly
+        sudo -u "${PEMLY_USER}" DJANGO_SETTINGS_MODULE=pkife.settings.production PYTHONUNBUFFERED=1 "${VENV_DIR}/bin/python" manage.py createsuperuser < /dev/tty > /dev/tty 2>&1
     else
         log_info "Skipping admin user creation"
         log_info "Create later: sudo -u ${PEMLY_USER} ${VENV_DIR}/bin/python ${INSTALL_DIR}/manage.py createsuperuser"
