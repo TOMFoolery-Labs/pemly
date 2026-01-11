@@ -1,0 +1,51 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build CSS
+        run: |
+          npm install
+          npm run tailwind:prod
+
+      - name: Create release tarball
+        run: |
+          # Create a clean tarball with pre-built CSS, excluding dev files
+          tar -czvf pemly-${{ github.ref_name }}.tar.gz \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='node_modules' \
+            --exclude='package-lock.json' \
+            --exclude='*.pyc' \
+            --exclude='__pycache__' \
+            --exclude='.env' \
+            --exclude='db.sqlite3' \
+            --exclude='staticfiles' \
+            --exclude='.claude' \
+            --exclude='.venv' \
+            --exclude='venv' \
+            --transform 's,^,pemly/,' \
+            .
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: pemly-${{ github.ref_name }}.tar.gz
+          generate_release_notes: true

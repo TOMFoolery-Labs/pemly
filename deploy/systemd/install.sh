@@ -198,9 +198,7 @@ install_system_deps() {
                 nginx \
                 git \
                 curl \
-                rsync \
-                nodejs \
-                npm
+                rsync
             ;;
         dnf)
             ${PKG_INSTALL} \
@@ -214,9 +212,7 @@ install_system_deps() {
                 nginx \
                 git \
                 curl \
-                rsync \
-                nodejs \
-                npm
+                rsync
 
             # Initialize PostgreSQL on RHEL-based systems
             if [[ ! -f /var/lib/pgsql/data/PG_VERSION ]]; then
@@ -273,11 +269,43 @@ create_user() {
     fi
 }
 
+download_release() {
+    # Try to download the latest release tarball
+    # Returns 0 on success, 1 on failure
+    local latest_release
+    latest_release=$(curl -sL --fail https://api.github.com/repos/TOMFoolery-Labs/pemly/releases/latest 2>/dev/null | grep '"tag_name"' | cut -d'"' -f4)
+
+    if [[ -z "${latest_release}" ]]; then
+        return 1
+    fi
+
+    local tarball_url="https://github.com/TOMFoolery-Labs/pemly/releases/download/${latest_release}/pemly-${latest_release}.tar.gz"
+
+    log_info "Downloading release ${latest_release}..."
+
+    # Download and extract (tarball has pemly/ prefix)
+    if curl -sL --fail "${tarball_url}" | tar -xz -C "${INSTALL_DIR}" --strip-components=1; then
+        INSTALLED_FROM_RELEASE=true
+        log_success "Downloaded release ${latest_release}"
+        return 0
+    else
+        log_warn "Failed to download release tarball"
+        return 1
+    fi
+}
+
 install_application() {
     log_info "Installing Pemly application..."
 
     # Create install directory
     mkdir -p "${INSTALL_DIR}"
+
+    # Preserve .env if it exists
+    local saved_env=""
+    if [[ -f "${INSTALL_DIR}/.env" ]]; then
+        log_info "Preserving existing .env file..."
+        saved_env=$(cat "${INSTALL_DIR}/.env")
+    fi
 
     # Check if we're running from the repo itself
     local script_dir
@@ -303,21 +331,22 @@ install_application() {
         cd "${INSTALL_DIR}"
         git pull
     else
-        log_info "Cloning from ${REPO_URL}..."
-        # Preserve .env if it exists
-        local saved_env=""
-        if [[ -f "${INSTALL_DIR}/.env" ]]; then
-            log_info "Preserving existing .env file..."
-            saved_env=$(cat "${INSTALL_DIR}/.env")
-        fi
-        # Remove existing directory and clone fresh
+        # Try release download first (includes pre-built CSS, no npm needed)
+        # Fall back to git clone if no release available
         rm -rf "${INSTALL_DIR:?}"
-        git clone "${REPO_URL}" "${INSTALL_DIR}"
-        # Restore .env if it was saved
-        if [[ -n "${saved_env}" ]]; then
-            echo "${saved_env}" > "${INSTALL_DIR}/.env"
-            log_info "Restored .env file"
+        mkdir -p "${INSTALL_DIR}"
+
+        if ! download_release; then
+            log_info "No release available, cloning from ${REPO_URL}..."
+            rm -rf "${INSTALL_DIR:?}"
+            git clone "${REPO_URL}" "${INSTALL_DIR}"
         fi
+    fi
+
+    # Restore .env if it was saved
+    if [[ -n "${saved_env}" ]]; then
+        echo "${saved_env}" > "${INSTALL_DIR}/.env"
+        log_info "Restored .env file"
     fi
 
     chown -R "${PEMLY_USER}:${PEMLY_GROUP}" "${INSTALL_DIR}"
@@ -339,9 +368,20 @@ setup_python_env() {
 }
 
 build_frontend() {
+    cd "${INSTALL_DIR}"
+
+    # Skip build if pre-built CSS exists (from release tarball)
+    if [[ -f "${INSTALL_DIR}/static/css/output.css" ]]; then
+        log_info "Pre-built CSS found, skipping frontend build"
+        return
+    fi
+
     log_info "Building frontend assets..."
 
-    cd "${INSTALL_DIR}"
+    # Check if npm is available
+    if ! command -v npm &>/dev/null; then
+        die "npm is required to build CSS but is not installed. Install nodejs/npm or use a release tarball."
+    fi
 
     # Install npm dependencies
     sudo -u "${PEMLY_USER}" npm install
@@ -712,6 +752,7 @@ parse_args() {
     DO_UNINSTALL=false
     FORCE_INSTALL=false
     SSL_CONFIGURED=false
+    INSTALLED_FROM_RELEASE=false
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
