@@ -4,19 +4,19 @@ This guide covers deploying Pemly on a Linux server with systemd and nginx.
 
 ## Quick Install
 
-Run the automated installer (includes Let's Encrypt SSL by default):
+Run the automated installer (downloads pre-built release, no npm/node required):
 
 ```bash
-sudo /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/TOMFoolery-Labs/pemly/main/deploy/systemd/install.sh)"
+curl -fsSL https://raw.githubusercontent.com/TOMFoolery-Labs/pemly/main/deploy/systemd/install.sh | sudo bash
 ```
 
 To skip SSL setup and use HTTP only:
 
 ```bash
-sudo /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/TOMFoolery-Labs/pemly/main/deploy/systemd/install.sh)" -- --no-ssl
+curl -fsSL https://raw.githubusercontent.com/TOMFoolery-Labs/pemly/main/deploy/systemd/install.sh | sudo bash -s -- --no-ssl
 ```
 
-The script handles all installation steps including dependencies, database setup, nginx, and SSL configuration. See `install.sh --help` for options.
+The script downloads the latest release (with pre-built CSS), installs dependencies, configures PostgreSQL, nginx, and optional Let's Encrypt SSL. See `install.sh --help` for all options.
 
 ---
 
@@ -31,6 +31,7 @@ The following sections describe the manual installation process.
 - PostgreSQL (or other database accessible via DATABASE_URL)
 - nginx
 - CFSSL binary installed and in PATH
+- Node.js/npm (only if installing from git; release tarballs include pre-built CSS)
 
 #### Install CFSSL
 
@@ -52,28 +53,41 @@ sudo useradd --system --home /opt/pemly --shell /usr/sbin/nologin pemly
 
 #### 2. Install Application
 
+**Option A: Download release tarball (recommended, no npm required)**
+
 ```bash
 # Create directory
 sudo mkdir -p /opt/pemly
 sudo chown pemly:pemly /opt/pemly
 
-# Clone or copy application files
-sudo -u pemly git clone https://github.com/TOMFoolery-Labs/pemly.git /opt/pemly
+# Download and extract latest release
+VERSION=$(curl -sL https://api.github.com/repos/TOMFoolery-Labs/pemly/releases/latest | grep '"tag_name"' | cut -d'"' -f4)
+curl -sL "https://github.com/TOMFoolery-Labs/pemly/releases/download/${VERSION}/pemly-${VERSION}.tar.gz" | \
+  sudo -u pemly tar -xz -C /opt/pemly --strip-components=1
 
-# Or copy from local:
-# sudo cp -r /path/to/pemly/* /opt/pemly/
-# sudo chown -R pemly:pemly /opt/pemly
-
-# Create virtual environment
+# Create virtual environment and install dependencies
 sudo -u pemly python3 -m venv /opt/pemly/venv
-
-# Install dependencies
 sudo -u pemly /opt/pemly/venv/bin/pip install -r /opt/pemly/requirements.txt
 ```
 
-#### 3. Build Frontend Assets
+**Option B: Clone from git (requires npm to build CSS)**
 
-Pemly uses Tailwind CSS which must be built before deployment.
+```bash
+# Create directory
+sudo mkdir -p /opt/pemly
+sudo chown pemly:pemly /opt/pemly
+
+# Clone repository
+sudo -u pemly git clone https://github.com/TOMFoolery-Labs/pemly.git /opt/pemly
+
+# Create virtual environment and install dependencies
+sudo -u pemly python3 -m venv /opt/pemly/venv
+sudo -u pemly /opt/pemly/venv/bin/pip install -r /opt/pemly/requirements.txt
+```
+
+#### 3. Build Frontend Assets (git installs only)
+
+Skip this step if you installed from a release tarball (CSS is pre-built).
 
 ```bash
 # Install Node.js (Debian/Ubuntu)
@@ -197,6 +211,28 @@ sudo -u pemly /opt/pemly/venv/bin/python /opt/pemly/manage.py <command>
 
 ### Upgrading
 
+**Option A: Upgrade from release (recommended)**
+
+```bash
+# Download and extract new release
+cd /opt/pemly
+VERSION=$(curl -sL https://api.github.com/repos/TOMFoolery-Labs/pemly/releases/latest | grep '"tag_name"' | cut -d'"' -f4)
+curl -sL "https://github.com/TOMFoolery-Labs/pemly/releases/download/${VERSION}/pemly-${VERSION}.tar.gz" | \
+  sudo -u pemly tar -xz -C /opt/pemly --strip-components=1
+
+# Install any new dependencies
+sudo -u pemly /opt/pemly/venv/bin/pip install -r requirements.txt
+
+# Run migrations and collect static files
+sudo -u pemly /opt/pemly/venv/bin/python manage.py migrate
+sudo -u pemly /opt/pemly/venv/bin/python manage.py collectstatic --noinput
+
+# Restart service
+sudo systemctl restart pemly
+```
+
+**Option B: Upgrade from git**
+
 ```bash
 # Pull updates
 cd /opt/pemly
@@ -209,10 +245,8 @@ sudo -u pemly npm install
 # Build frontend assets
 sudo -u pemly npm run tailwind:prod
 
-# Run migrations
+# Run migrations and collect static files
 sudo -u pemly /opt/pemly/venv/bin/python manage.py migrate
-
-# Collect static files
 sudo -u pemly /opt/pemly/venv/bin/python manage.py collectstatic --noinput
 
 # Restart service
