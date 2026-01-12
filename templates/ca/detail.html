@@ -198,30 +198,38 @@
         <h3 class="text-lg font-medium text-slate-900">Actions</h3>
       </div>
       <div class="card-body space-y-3">
-        {% if ca.can_sign %}
+        {% if can_issue_certificates and ca.can_sign %}
         <a href="{% url 'core:certificate_create' %}?ca={{ ca.pk }}" class="btn-primary w-full justify-center">
           Issue Certificate
         </a>
-        <a href="{% url 'core:intermediate_create' pk=ca.pk %}" class="btn-secondary w-full justify-center">
-          Create Intermediate CA
-        </a>
         {% endif %}
 
-        {% if ca.is_air_gapped %}
-        <a href="{% url 'core:intermediate_create_csr' pk=ca.pk %}" class="btn-secondary w-full justify-center">
-          Create Intermediate (CSR)
-        </a>
-        <a href="{% url 'core:ca_restore_key' pk=ca.pk %}" class="btn-secondary w-full justify-center">
-          Restore Private Key
-        </a>
+        {% if can_manage_cas %}
+          {% if ca.can_sign %}
+          <a href="{% url 'core:intermediate_create' pk=ca.pk %}" class="btn-secondary w-full justify-center">
+            Create Intermediate CA
+          </a>
+          {% endif %}
+
+          {% if ca.is_air_gapped %}
+          <a href="{% url 'core:intermediate_create_csr' pk=ca.pk %}" class="btn-secondary w-full justify-center">
+            Create Intermediate (CSR)
+          </a>
+          <a href="{% url 'core:ca_restore_key' pk=ca.pk %}" class="btn-secondary w-full justify-center">
+            Restore Private Key
+          </a>
+          {% endif %}
         {% endif %}
 
         <a href="{% url 'core:certificate_list' %}?ca={{ ca.pk }}" class="btn-secondary w-full justify-center">
           View Certificates
         </a>
+
+        {% if can_manage_cas %}
         <a href="{% url 'core:ca_ocsp_config' pk=ca.pk %}" class="btn-secondary w-full justify-center">
           OCSP Configuration
         </a>
+        {% endif %}
       </div>
     </div>
 
@@ -246,14 +254,16 @@
         {% else %}
           <p class="text-sm text-slate-500">No OCSP responder URL configured.</p>
         {% endif %}
+        {% if can_manage_cas %}
         <a href="{% url 'core:ca_ocsp_config' pk=ca.pk %}" class="text-sm text-blue-600 hover:text-blue-700 mt-2 inline-block">
           Configure &rarr;
         </a>
+        {% endif %}
       </div>
     </div>
 
     <!-- Air-Gap Section -->
-    {% if ca.has_private_key %}
+    {% if ca.has_private_key and can_manage_cas %}
     <div class="card">
       <div class="card-header">
         <h3 class="text-lg font-medium text-slate-900">Security</h3>

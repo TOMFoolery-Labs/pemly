@@ -25,6 +25,7 @@ from core.models import (
     KeyAlgorithm,
     RevocationReason,
 )
+from core.permissions import CanManageCertificatesMixin, get_certificates_for_user
 from core.services import CFSSLClient, CFSSLError
 from core.services.cfssl import CertificateRequest
 
@@ -147,7 +148,7 @@ class CertificateCreateForm(forms.Form):
 
 
 class CertificateListView(LoginRequiredMixin, ListView):
-    """List all certificates."""
+    """List all certificates (filtered by role)."""
 
     model = Certificate
     template_name = 'certificates/list.html'
@@ -155,7 +156,8 @@ class CertificateListView(LoginRequiredMixin, ListView):
     paginate_by = 25
 
     def get_queryset(self):
-        queryset = Certificate.objects.select_related('ca', 'created_by')
+        # Get certificates visible to this user (role-based filtering)
+        queryset = get_certificates_for_user(self.request.user).select_related('ca', 'created_by')
 
         # Filter by status
         status = self.request.GET.get('status')
@@ -184,8 +186,8 @@ class CertificateListView(LoginRequiredMixin, ListView):
         return context
 
 
-class CertificateCreateView(LoginRequiredMixin, View):
-    """Create a new certificate."""
+class CertificateCreateView(CanManageCertificatesMixin, View):
+    """Create a new certificate (Certificate Managers and above only)."""
 
     template_name = 'certificates/create.html'
 
@@ -360,8 +362,8 @@ class CertificateDetailView(LoginRequiredMixin, DetailView):
     context_object_name = 'certificate'
 
 
-class CertificateRevokeView(LoginRequiredMixin, View):
-    """Revoke a certificate."""
+class CertificateRevokeView(CanManageCertificatesMixin, View):
+    """Revoke a certificate (Certificate Managers and above only)."""
 
     template_name = 'certificates/revoke.html'
 

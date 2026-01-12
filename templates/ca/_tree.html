@@ -32,7 +32,7 @@
         </div>
       </div>
       <div class="flex items-center gap-2">
-        {% if node.ca.status == 'pending' %}
+        {% if node.ca.status == 'pending' and can_manage_cas %}
         <a href="{% url 'core:intermediate_import_cert' pk=node.ca.pk %}" class="btn-primary btn-sm">
           Import Certificate
         </a>
@@ -40,17 +40,19 @@
         <a href="{% url 'core:ca_detail' pk=node.ca.pk %}" class="btn-secondary btn-sm">
           View
         </a>
-        {% if node.ca.can_sign %}
-        <a href="{% url 'core:intermediate_create' pk=node.ca.pk %}" class="btn-primary btn-sm">
-          Create Intermediate
-        </a>
-        {% elif node.ca.is_air_gapped %}
-        <a href="{% url 'core:intermediate_create_csr' pk=node.ca.pk %}" class="btn-secondary btn-sm">
-          Create via CSR
-        </a>
-        <a href="{% url 'core:ca_restore_key' pk=node.ca.pk %}" class="btn-secondary btn-sm">
-          Restore Key
-        </a>
+        {% if can_manage_cas %}
+          {% if node.ca.can_sign %}
+          <a href="{% url 'core:intermediate_create' pk=node.ca.pk %}" class="btn-primary btn-sm">
+            Create Intermediate
+          </a>
+          {% elif node.ca.is_air_gapped %}
+          <a href="{% url 'core:intermediate_create_csr' pk=node.ca.pk %}" class="btn-secondary btn-sm">
+            Create via CSR
+          </a>
+          <a href="{% url 'core:ca_restore_key' pk=node.ca.pk %}" class="btn-secondary btn-sm">
+            Restore Key
+          </a>
+          {% endif %}
         {% endif %}
         {% endif %}
       </div>

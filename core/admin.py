@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import AuditLog, Certificate, CertificateAuthority
+from .models import AuditLog, Certificate, CertificateAuthority, PendingCertificateRequest
 
 
 @admin.register(CertificateAuthority)
@@ -95,3 +95,42 @@ class AuditLogAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+
+@admin.register(PendingCertificateRequest)
+class PendingCertificateRequestAdmin(admin.ModelAdmin):
+    """Admin interface for Pending Certificate Requests."""
+
+    list_display = ['common_name', 'requested_by', 'ca', 'status', 'requested_at', 'reviewed_by']
+    list_filter = ['status', 'type', 'ca', 'requested_at']
+    search_fields = ['common_name', 'organization', 'requested_by__username']
+    readonly_fields = [
+        'id', 'requested_by', 'requested_at', 'reviewed_by', 'reviewed_at',
+        'issued_certificate', 'csr_pem'
+    ]
+    ordering = ['-requested_at']
+
+    fieldsets = (
+        ('Request Info', {
+            'fields': ('id', 'status', 'ca', 'type')
+        }),
+        ('Requester', {
+            'fields': ('requested_by', 'requested_at')
+        }),
+        ('Certificate Details', {
+            'fields': ('common_name', 'organization', 'san_dns_names', 'san_ip_addresses', 'san_email_addresses')
+        }),
+        ('Key Configuration', {
+            'fields': ('key_algorithm', 'key_size', 'validity_days')
+        }),
+        ('CSR', {
+            'fields': ('csr_pem',),
+            'classes': ('collapse',)
+        }),
+        ('Review', {
+            'fields': ('reviewed_by', 'reviewed_at', 'rejection_reason')
+        }),
+        ('Result', {
+            'fields': ('issued_certificate',)
+        }),
+    )

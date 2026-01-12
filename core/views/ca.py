@@ -16,6 +16,7 @@ from core.models import (
     CAType,
     KeyAlgorithm,
 )
+from core.permissions import AdminOrSuperAdminRequiredMixin, NotRequesterMixin
 from core.services import CFSSLClient, CFSSLError
 from core.services.cfssl import CertificateRequest
 
@@ -75,7 +76,7 @@ class CASetupForm(forms.Form):
     )
 
 
-class CASetupView(LoginRequiredMixin, View):
+class CASetupView(AdminOrSuperAdminRequiredMixin, View):
     """View for initial CA setup wizard."""
 
     template_name = 'ca/setup.html'
@@ -389,7 +390,7 @@ class IntermediateCAForm(forms.Form):
     )
 
 
-class IntermediateCACreateView(LoginRequiredMixin, View):
+class IntermediateCACreateView(AdminOrSuperAdminRequiredMixin, View):
     """Create an intermediate CA signed directly by parent."""
 
     template_name = 'ca/create_intermediate.html'
@@ -522,7 +523,7 @@ class IntermediateCACreateView(LoginRequiredMixin, View):
         return render(request, self.template_name, {'form': form, 'parent_ca': parent_ca})
 
 
-class CAKeyExportView(LoginRequiredMixin, View):
+class CAKeyExportView(AdminOrSuperAdminRequiredMixin, View):
     """Export CA private key for offline storage."""
 
     def get(self, request, pk):
@@ -551,7 +552,7 @@ class CAKeyExportView(LoginRequiredMixin, View):
         return response
 
 
-class CAKeyRemoveView(LoginRequiredMixin, View):
+class CAKeyRemoveView(AdminOrSuperAdminRequiredMixin, View):
     """Permanently remove CA private key from database (air-gap)."""
 
     template_name = 'ca/remove_key.html'
@@ -612,7 +613,7 @@ class CAKeyRemoveView(LoginRequiredMixin, View):
             return render(request, self.template_name, {'ca': ca})
 
 
-class CAKeyRestoreView(LoginRequiredMixin, View):
+class CAKeyRestoreView(AdminOrSuperAdminRequiredMixin, View):
     """Temporarily restore an air-gapped CA's private key."""
 
     template_name = 'ca/restore_key.html'

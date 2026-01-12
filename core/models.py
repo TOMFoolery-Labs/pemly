@@ -558,6 +558,167 @@ class Certificate(models.Model):
         self.save(update_fields=['status', 'revoked_at', 'revocation_reason'])
 
 
+class PendingCertificateRequest(models.Model):
+    """
+    Certificate signing request awaiting approval.
+
+    Certificate Requesters submit CSRs that must be approved by Certificate Managers,
+    Administrators, or Super Admins before being issued as certificates.
+    """
+
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Pending Approval'
+        APPROVED = 'approved', 'Approved'
+        REJECTED = 'rejected', 'Rejected'
+        ISSUED = 'issued', 'Issued'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    ca = models.ForeignKey(
+        CertificateAuthority,
+        on_delete=models.PROTECT,
+        related_name='pending_requests',
+        help_text="CA that will sign this certificate"
+    )
+    requested_by = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        related_name='certificate_requests',
+        help_text="User who requested the certificate"
+    )
+
+    # Certificate type
+    type = models.CharField(
+        max_length=20,
+        choices=CertificateType.choices,
+        default=CertificateType.SERVER_TLS,
+        help_text="Type of certificate requested"
+    )
+
+    # Subject information
+    common_name = models.CharField(max_length=255)
+    organization = models.CharField(max_length=255, blank=True)
+
+    # Subject Alternative Names (SANs)
+    san_dns_names = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="DNS names to include in certificate"
+    )
+    san_ip_addresses = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="IP addresses to include in certificate"
+    )
+    san_email_addresses = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Email addresses to include in certificate"
+    )
+
+    # Key configuration
+    key_algorithm = models.CharField(
+        max_length=10,
+        choices=KeyAlgorithm.choices,
+        default=KeyAlgorithm.RSA
+    )
+    key_size = models.IntegerField(
+        default=2048,
+        help_text="Key size in bits"
+    )
+    validity_days = models.IntegerField(
+        default=365,
+        help_text="Requested certificate validity in days"
+    )
+
+    # CSR data
+    csr_pem = models.TextField(help_text="Certificate Signing Request in PEM format")
+
+    # Request metadata
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+        db_index=True
+    )
+    requested_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    # Review tracking
+    reviewed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reviewed_requests',
+        help_text="User who approved or rejected the request"
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+
+    # For rejections
+    rejection_reason = models.TextField(
+        blank=True,
+        help_text="Reason for rejection (if rejected)"
+    )
+
+    # Link to issued certificate (if approved and issued)
+    issued_certificate = models.ForeignKey(
+        Certificate,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='source_request',
+        help_text="Certificate that was issued from this request"
+    )
+
+    class Meta:
+        ordering = ['-requested_at']
+        verbose_name = "Pending Certificate Request"
+        verbose_name_plural = "Pending Certificate Requests"
+
+    def __str__(self):
+        return f"{self.common_name} ({self.get_status_display()}) - requested by {self.requested_by.username}"
+
+    @property
+    def is_pending(self) -> bool:
+        """Check if request is awaiting approval."""
+        return self.status == self.Status.PENDING
+
+    @property
+    def is_approved(self) -> bool:
+        """Check if request was approved."""
+        return self.status == self.Status.APPROVED
+
+    @property
+    def is_rejected(self) -> bool:
+        """Check if request was rejected."""
+        return self.status == self.Status.REJECTED
+
+    @property
+    def is_issued(self) -> bool:
+        """Check if certificate was issued."""
+        return self.status == self.Status.ISSUED
+
+    def approve(self, reviewer: User) -> None:
+        """Mark request as approved."""
+        self.status = self.Status.APPROVED
+        self.reviewed_by = reviewer
+        self.reviewed_at = timezone.now()
+        self.save(update_fields=['status', 'reviewed_by', 'reviewed_at'])
+
+    def reject(self, reviewer: User, reason: str) -> None:
+        """Mark request as rejected."""
+        self.status = self.Status.REJECTED
+        self.reviewed_by = reviewer
+        self.reviewed_at = timezone.now()
+        self.rejection_reason = reason
+        self.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'rejection_reason'])
+
+    def mark_issued(self, certificate: Certificate) -> None:
+        """Mark request as issued with the resulting certificate."""
+        self.status = self.Status.ISSUED
+        self.issued_certificate = certificate
+        self.save(update_fields=['status', 'issued_certificate'])
+
+
 class AuditLog(models.Model):
     """
     Immutable audit log for all certificate operations.
@@ -581,6 +742,15 @@ class AuditLog(models.Model):
         USER_LOGOUT = 'user_logout', 'User Logout'
         BACKUP_CREATED = 'backup_created', 'Backup Created'
         BACKUP_RESTORED = 'backup_restored', 'Backup Restored'
+        # RBAC actions
+        USER_CREATED = 'user_created', 'User Created'
+        USER_UPDATED = 'user_updated', 'User Updated'
+        USER_DELETED = 'user_deleted', 'User Deleted'
+        USER_ROLE_CHANGED = 'user_role_changed', 'User Role Changed'
+        # Certificate request approval actions
+        CERT_REQUEST_SUBMITTED = 'cert_request_submitted', 'Certificate Request Submitted'
+        CERT_REQUEST_APPROVED = 'cert_request_approved', 'Certificate Request Approved'
+        CERT_REQUEST_REJECTED = 'cert_request_rejected', 'Certificate Request Rejected'
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     timestamp = models.DateTimeField(auto_now_add=True, db_index=True)

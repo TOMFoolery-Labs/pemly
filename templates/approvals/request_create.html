@@ -1,0 +1,144 @@
+{% extends 'base.html' %}
+
+{% block title %}Request Certificate{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold text-slate-900">Request Certificate</h1>
+      <p class="mt-1 text-sm text-slate-500">Submit a Certificate Signing Request (CSR) for approval</p>
+    </div>
+    <a href="{% url 'core:approval_list' %}" class="btn-secondary">
+      <svg class="h-4 w-4 mr-2 -ml-1" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+      </svg>
+      View My Requests
+    </a>
+  </div>
+</div>
+
+<div class="card max-w-4xl">
+  <div class="card-body">
+    <form method="post" class="space-y-6">
+      {% csrf_token %}
+
+      {% if form.non_field_errors %}
+      <div class="alert-danger">
+        {% for error in form.non_field_errors %}
+          <p>{{ error }}</p>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <!-- Info box -->
+      <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div class="flex">
+          <div class="flex-shrink-0">
+            <svg class="h-5 w-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+            </svg>
+          </div>
+          <div class="ml-3 flex-1">
+            <h3 class="text-sm font-medium text-blue-800">Certificate Request Process</h3>
+            <div class="mt-2 text-sm text-blue-700">
+              <p>As a Certificate Requester, you need to:</p>
+              <ol class="list-decimal list-inside mt-2 space-y-1">
+                <li>Generate a private key and CSR on your system</li>
+                <li>Submit the CSR through this form</li>
+                <li>Wait for a Certificate Manager to review and approve</li>
+                <li>Download your signed certificate once approved</li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- How to generate CSR -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="text-base font-medium text-slate-900">How to Generate a CSR</h3>
+        </div>
+        <div class="card-body">
+          <p class="text-sm text-slate-600 mb-3">Use OpenSSL to generate a private key and CSR:</p>
+          <div class="bg-slate-900 rounded-lg p-4">
+            <pre class="text-sm text-white font-mono"><span class="text-slate-400"># Generate private key</span>
+openssl genrsa -out private.key 2048
+
+<span class="text-slate-400"># Generate CSR</span>
+openssl req -new -key private.key -out request.csr \
+  -subj "/CN=example.com/O=My Organization"</pre>
+          </div>
+          <p class="text-xs text-slate-500 mt-2">Keep your private key secure! Never share it with anyone.</p>
+        </div>
+      </div>
+
+      <!-- CA Selection -->
+      <div>
+        <label for="id_ca" class="form-label">Certificate Authority *</label>
+        {{ form.ca }}
+        {% if form.ca.help_text %}
+          <p class="mt-1 text-sm text-slate-500">{{ form.ca.help_text }}</p>
+        {% endif %}
+        {% if form.ca.errors %}
+          <p class="form-error">{{ form.ca.errors.0 }}</p>
+        {% endif %}
+      </div>
+
+      <!-- Certificate Type -->
+      <div>
+        <label for="id_type" class="form-label">Certificate Type *</label>
+        {{ form.type }}
+        {% if form.type.help_text %}
+          <p class="mt-1 text-sm text-slate-500">{{ form.type.help_text }}</p>
+        {% endif %}
+        {% if form.type.errors %}
+          <p class="form-error">{{ form.type.errors.0 }}</p>
+        {% endif %}
+
+        <!-- Certificate type descriptions -->
+        <div class="mt-3 space-y-2 text-sm text-slate-600 bg-slate-50 p-3 rounded-lg">
+          <p class="font-medium text-slate-700">Certificate Types:</p>
+          <ul class="list-disc list-inside space-y-1 ml-2">
+            <li><strong>Server TLS:</strong> For web servers (HTTPS)</li>
+            <li><strong>Client TLS:</strong> For client authentication</li>
+            <li><strong>Code Signing:</strong> For signing software/code</li>
+            <li><strong>Email (S/MIME):</strong> For email encryption/signing</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- CSR -->
+      <div>
+        <label for="id_csr_pem" class="form-label">{{ form.csr_pem.label }} *</label>
+        {{ form.csr_pem }}
+        {% if form.csr_pem.help_text %}
+          <p class="mt-1 text-sm text-slate-500">{{ form.csr_pem.help_text }}</p>
+        {% endif %}
+        {% if form.csr_pem.errors %}
+          <p class="form-error">{{ form.csr_pem.errors.0 }}</p>
+        {% endif %}
+      </div>
+
+      <!-- Notes (optional) -->
+      <div>
+        <label for="id_notes" class="form-label">Notes (Optional)</label>
+        {{ form.notes }}
+        {% if form.notes.help_text %}
+          <p class="mt-1 text-sm text-slate-500">{{ form.notes.help_text }}</p>
+        {% endif %}
+      </div>
+
+      <!-- Submit Buttons -->
+      <div class="flex items-center justify-end gap-3 pt-6 border-t border-slate-200">
+        <a href="{% url 'core:approval_list' %}" class="btn-secondary">
+          Cancel
+        </a>
+        <button type="submit" class="btn-primary" data-loading-text="Submitting...">
+          Submit Request
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
