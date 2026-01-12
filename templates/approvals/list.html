@@ -1,0 +1,205 @@
+{% extends 'base.html' %}
+
+{% block title %}
+  {% if user.profile.role == 'certificate_requester' %}
+    My Certificate Requests
+  {% else %}
+    Certificate Approvals
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="mb-8 flex items-center justify-between">
+  <div>
+    <h1 class="text-2xl font-semibold text-slate-900">
+      {% if user.profile.role == 'certificate_requester' %}
+        My Certificate Requests
+      {% else %}
+        Certificate Approvals
+      {% endif %}
+    </h1>
+    <p class="mt-1 text-sm text-slate-500">
+      {% if user.profile.role == 'certificate_requester' %}
+        View the status of your certificate requests
+      {% else %}
+        Review and approve certificate requests
+      {% endif %}
+    </p>
+  </div>
+  <a href="{% url 'core:certificate_request' %}" class="btn-primary">
+    <svg class="h-4 w-4 mr-2 -ml-1" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+    </svg>
+    New Request
+  </a>
+</div>
+
+<!-- Stats for managers -->
+{% if pending_count is not None %}
+<div class="grid grid-cols-1 gap-4 sm:grid-cols-3 mb-6">
+  <div class="card">
+    <div class="card-body">
+      <div class="text-sm font-medium text-slate-500">Pending Approval</div>
+      <div class="mt-1 text-2xl font-semibold text-amber-600">{{ pending_count }}</div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Filters -->
+<div class="card mb-6">
+  <div class="card-body">
+    <form method="get" class="flex flex-wrap items-end gap-4">
+      <div class="w-48">
+        <label for="status" class="form-label">Status</label>
+        <select name="status" id="status"
+                class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+          <option value="">
+            {% if user.profile.role == 'certificate_requester' %}
+              All Statuses
+            {% else %}
+              Pending Only
+            {% endif %}
+          </option>
+          {% for value, label in statuses %}
+          <option value="{{ value }}" {% if current_status == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn-secondary">
+        Filter
+      </button>
+      {% if current_status %}
+      <a href="{% url 'core:approval_list' %}" class="text-sm text-slate-500 hover:text-slate-700">
+        Clear
+      </a>
+      {% endif %}
+    </form>
+  </div>
+</div>
+
+<!-- Requests Table -->
+<div class="card">
+  <div class="card-body p-0">
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-slate-200">
+        <thead class="bg-slate-50">
+          <tr>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+              Common Name
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+              Type
+            </th>
+            {% if user.profile.role != 'certificate_requester' %}
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+              Requester
+            </th>
+            {% endif %}
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+              CA
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+              Status
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+              Requested
+            </th>
+            <th scope="col" class="relative px-6 py-3">
+              <span class="sr-only">Actions</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-slate-200">
+          {% for req in requests %}
+          <tr class="hover:bg-slate-50">
+            <td class="px-6 py-4 whitespace-nowrap">
+              <div class="text-sm font-medium text-slate-900">
+                {{ req.common_name }}
+              </div>
+              {% if req.san_dns_names %}
+              <div class="text-xs text-slate-500 mt-1">
+                +{{ req.san_dns_names|length }} SAN{% if req.san_dns_names|length > 1 %}s{% endif %}
+              </div>
+              {% endif %}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
+              {{ req.get_type_display }}
+            </td>
+            {% if user.profile.role != 'certificate_requester' %}
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
+              {{ req.requested_by.username }}
+            </td>
+            {% endif %}
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+              {{ req.ca.name }}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              {% if req.status == 'pending' %}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                  {{ req.get_status_display }}
+                </span>
+              {% elif req.status == 'approved' or req.status == 'issued' %}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                  {{ req.get_status_display }}
+                </span>
+              {% elif req.status == 'rejected' %}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                  {{ req.get_status_display }}
+                </span>
+              {% endif %}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+              {{ req.requested_at|date:"M d, Y" }}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+              <a href="{% url 'core:pending_request_detail' pk=req.pk %}" class="text-primary-600 hover:text-primary-900">
+                View
+              </a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="7" class="px-6 py-12 text-center">
+              <div class="text-slate-500">
+                <svg class="mx-auto h-12 w-12 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <p class="mt-2 text-sm">
+                  {% if current_status %}
+                    No requests match your filters.
+                  {% else %}
+                    No certificate requests yet.
+                    <a href="{% url 'core:certificate_request' %}" class="text-primary-600 hover:underline">Submit your first request</a>
+                  {% endif %}
+                </p>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {% if page_obj.has_other_pages %}
+  <div class="card-footer">
+    <nav class="flex items-center justify-between">
+      <div class="text-sm text-slate-500">
+        Showing {{ page_obj.start_index }}-{{ page_obj.end_index }} of {{ page_obj.paginator.count }}
+      </div>
+      <div class="flex gap-2">
+        {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}{% if current_status %}&status={{ current_status }}{% endif %}"
+           class="btn-secondary btn-sm">Previous</a>
+        {% endif %}
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}{% if current_status %}&status={{ current_status }}{% endif %}"
+           class="btn-secondary btn-sm">Next</a>
+        {% endif %}
+      </div>
+    </nav>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

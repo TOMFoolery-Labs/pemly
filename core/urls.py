@@ -37,9 +37,16 @@ urlpatterns = [
     # Certificates
     path('certificates/', views.CertificateListView.as_view(), name='certificate_list'),
     path('certificates/create/', views.CertificateCreateView.as_view(), name='certificate_create'),
+    path('certificates/request/', views.CertificateRequestCreateView.as_view(), name='certificate_request'),
     path('certificates/<uuid:pk>/', views.CertificateDetailView.as_view(), name='certificate_detail'),
     path('certificates/<uuid:pk>/revoke/', views.CertificateRevokeView.as_view(), name='certificate_revoke'),
     path('certificates/<uuid:pk>/download/<str:file_type>/', views.CertificateDownloadView.as_view(), name='certificate_download'),
+
+    # Certificate Request Approval Workflow
+    path('approvals/', views.PendingRequestListView.as_view(), name='approval_list'),
+    path('approvals/<uuid:pk>/', views.PendingRequestDetailView.as_view(), name='pending_request_detail'),
+    path('approvals/<uuid:pk>/approve/', views.PendingRequestApproveView.as_view(), name='pending_request_approve'),
+    path('approvals/<uuid:pk>/reject/', views.PendingRequestRejectView.as_view(), name='pending_request_reject'),
 
     # API endpoints
     path('api/parse-csr/', views.CSRParseView.as_view(), name='api_parse_csr'),

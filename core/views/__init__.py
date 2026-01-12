@@ -22,6 +22,13 @@ from .certificates import (
     CertificateDownloadView,
     CSRParseView,
 )
+from .approvals import (
+    CertificateRequestCreateView,
+    PendingRequestListView,
+    PendingRequestDetailView,
+    PendingRequestApproveView,
+    PendingRequestRejectView,
+)
 from .audit import AuditLogView
 from .settings import SettingsView, CFSSLActionView
 from .backup import BackupView, RestoreUploadView, RestoreConfirmView
@@ -55,6 +62,11 @@ __all__ = [
     'CertificateRevokeView',
     'CertificateDownloadView',
     'CSRParseView',
+    'CertificateRequestCreateView',
+    'PendingRequestListView',
+    'PendingRequestDetailView',
+    'PendingRequestApproveView',
+    'PendingRequestRejectView',
     'AuditLogView',
     'SettingsView',
     'CFSSLActionView',

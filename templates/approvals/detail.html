@@ -1,0 +1,257 @@
+{% extends 'base.html' %}
+
+{% block title %}Certificate Request - {{ request_obj.common_name }}{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+  <nav class="text-sm text-slate-500 mb-2">
+    <a href="{% url 'core:approval_list' %}" class="hover:text-slate-700">Certificate Requests</a>
+    <span class="mx-2">/</span>
+    <span class="text-slate-900">{{ request_obj.common_name }}</span>
+  </nav>
+  <div class="flex items-center justify-between">
+    <div>
+      <div class="flex items-center gap-3">
+        <h1 class="text-2xl font-semibold text-slate-900">{{ request_obj.common_name }}</h1>
+        {% if request_obj.status == 'pending' %}
+          <span class="badge-warning">{{ request_obj.get_status_display }}</span>
+        {% elif request_obj.status == 'approved' or request_obj.status == 'issued' %}
+          <span class="badge-success">{{ request_obj.get_status_display }}</span>
+        {% elif request_obj.status == 'rejected' %}
+          <span class="badge-danger">{{ request_obj.get_status_display }}</span>
+        {% endif %}
+      </div>
+      <p class="mt-1 text-sm text-slate-500">{{ request_obj.get_type_display }} certificate request</p>
+    </div>
+    <a href="{% url 'core:approval_list' %}" class="btn-secondary">
+      <svg class="h-4 w-4 mr-2 -ml-1" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+      </svg>
+      Back to Requests
+    </a>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+  <!-- Main Info -->
+  <div class="lg:col-span-2 space-y-6">
+    <!-- Request Details -->
+    <div class="card">
+      <div class="card-header">
+        <h2 class="text-lg font-medium text-slate-900">Request Details</h2>
+      </div>
+      <div class="card-body">
+        <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+          <div>
+            <dt class="text-sm font-medium text-slate-500">Common Name</dt>
+            <dd class="mt-1 text-sm text-slate-900">{{ request_obj.common_name }}</dd>
+          </div>
+          <div>
+            <dt class="text-sm font-medium text-slate-500">Organization</dt>
+            <dd class="mt-1 text-sm text-slate-900">{{ request_obj.organization|default:"—" }}</dd>
+          </div>
+          <div>
+            <dt class="text-sm font-medium text-slate-500">Certificate Type</dt>
+            <dd class="mt-1 text-sm text-slate-900">{{ request_obj.get_type_display }}</dd>
+          </div>
+          <div>
+            <dt class="text-sm font-medium text-slate-500">Certificate Authority</dt>
+            <dd class="mt-1 text-sm text-slate-900">{{ request_obj.ca.name }}</dd>
+          </div>
+          <div>
+            <dt class="text-sm font-medium text-slate-500">Key Algorithm</dt>
+            <dd class="mt-1 text-sm text-slate-900">{{ request_obj.get_key_algorithm_display }} {{ request_obj.key_size }}-bit</dd>
+          </div>
+          <div>
+            <dt class="text-sm font-medium text-slate-500">Validity Period</dt>
+            <dd class="mt-1 text-sm text-slate-900">{{ request_obj.validity_days }} days</dd>
+          </div>
+          <div>
+            <dt class="text-sm font-medium text-slate-500">Requested By</dt>
+            <dd class="mt-1 text-sm text-slate-900">{{ request_obj.requested_by.username }}</dd>
+          </div>
+          <div>
+            <dt class="text-sm font-medium text-slate-500">Requested At</dt>
+            <dd class="mt-1 text-sm text-slate-900">{{ request_obj.requested_at|date:"M d, Y H:i" }}</dd>
+          </div>
+          {% if request_obj.reviewed_by %}
+          <div>
+            <dt class="text-sm font-medium text-slate-500">Reviewed By</dt>
+            <dd class="mt-1 text-sm text-slate-900">{{ request_obj.reviewed_by.username }}</dd>
+          </div>
+          <div>
+            <dt class="text-sm font-medium text-slate-500">Reviewed At</dt>
+            <dd class="mt-1 text-sm text-slate-900">{{ request_obj.reviewed_at|date:"M d, Y H:i" }}</dd>
+          </div>
+          {% endif %}
+        </dl>
+      </div>
+    </div>
+
+    <!-- SANs -->
+    {% if request_obj.san_dns_names or request_obj.san_ip_addresses or request_obj.san_email_addresses %}
+    <div class="card">
+      <div class="card-header">
+        <h2 class="text-lg font-medium text-slate-900">Subject Alternative Names</h2>
+      </div>
+      <div class="card-body">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          {% if request_obj.san_dns_names %}
+          <div>
+            <h3 class="text-sm font-medium text-slate-500 mb-2">DNS Names</h3>
+            <ul class="space-y-1">
+              {% for dns in request_obj.san_dns_names %}
+              <li class="text-sm text-slate-900 font-mono">{{ dns }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+          {% endif %}
+          {% if request_obj.san_ip_addresses %}
+          <div>
+            <h3 class="text-sm font-medium text-slate-500 mb-2">IP Addresses</h3>
+            <ul class="space-y-1">
+              {% for ip in request_obj.san_ip_addresses %}
+              <li class="text-sm text-slate-900 font-mono">{{ ip }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+          {% endif %}
+          {% if request_obj.san_email_addresses %}
+          <div>
+            <h3 class="text-sm font-medium text-slate-500 mb-2">Email Addresses</h3>
+            <ul class="space-y-1">
+              {% for email in request_obj.san_email_addresses %}
+              <li class="text-sm text-slate-900 font-mono">{{ email }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Rejection Reason -->
+    {% if request_obj.status == 'rejected' and request_obj.rejection_reason %}
+    <div class="card border-red-200">
+      <div class="card-header bg-red-50">
+        <h2 class="text-lg font-medium text-red-900">Rejection Reason</h2>
+      </div>
+      <div class="card-body">
+        <p class="text-sm text-slate-700 whitespace-pre-wrap">{{ request_obj.rejection_reason }}</p>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Issued Certificate Link -->
+    {% if request_obj.issued_certificate %}
+    <div class="card border-green-200">
+      <div class="card-header bg-green-50">
+        <h2 class="text-lg font-medium text-green-900">Issued Certificate</h2>
+      </div>
+      <div class="card-body">
+        <p class="text-sm text-slate-700 mb-3">
+          This request was approved and the certificate has been issued.
+        </p>
+        <a href="{% url 'core:certificate_detail' pk=request_obj.issued_certificate.pk %}" class="btn-primary">
+          View Certificate
+        </a>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- CSR -->
+    <div class="card">
+      <div class="card-header flex items-center justify-between">
+        <h2 class="text-lg font-medium text-slate-900">Certificate Signing Request</h2>
+        <button onclick="navigator.clipboard.writeText(document.getElementById('csr-pem').textContent)" class="btn-secondary btn-sm">
+          Copy
+        </button>
+      </div>
+      <div class="card-body">
+        <pre id="csr-pem" class="bg-slate-50 p-4 rounded-lg text-xs font-mono overflow-x-auto whitespace-pre-wrap break-all">{{ request_obj.csr_pem }}</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="space-y-6">
+    <!-- Approval Actions (Managers only, for pending requests) -->
+    {% if can_approve %}
+    <div class="card border-green-200">
+      <div class="card-header bg-green-50">
+        <h3 class="text-lg font-medium text-green-900">Review Request</h3>
+      </div>
+      <div class="card-body space-y-3">
+        <form method="post" action="{% url 'core:pending_request_approve' pk=request_obj.pk %}" onsubmit="return confirm('Are you sure you want to approve this request and issue the certificate?');">
+          {% csrf_token %}
+          <button type="submit" class="btn-primary w-full justify-center" style="background-color: #16a34a; border-color: #16a34a;">
+            <svg class="h-4 w-4 mr-2 -ml-1" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Approve & Issue
+          </button>
+        </form>
+
+        <button id="reject-btn" onclick="document.getElementById('reject-form').classList.remove('hidden'); this.classList.add('hidden');" class="btn-danger w-full justify-center">
+          <svg class="h-4 w-4 mr-2 -ml-1" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Reject Request
+        </button>
+
+        <!-- Reject Form (hidden by default) -->
+        <form id="reject-form" method="post" action="{% url 'core:pending_request_reject' pk=request_obj.pk %}" class="hidden space-y-3">
+          {% csrf_token %}
+          <div class="pt-3 border-t border-slate-200">
+            <label for="id_rejection_reason" class="block text-sm font-medium text-slate-700 mb-2">
+              {{ reject_form.rejection_reason.label }}
+            </label>
+            {{ reject_form.rejection_reason }}
+            <p class="mt-1 text-xs text-slate-500">{{ reject_form.rejection_reason.help_text }}</p>
+            {% if reject_form.rejection_reason.errors %}
+              <p class="mt-1 text-sm text-red-600">{{ reject_form.rejection_reason.errors.0 }}</p>
+            {% endif %}
+          </div>
+          <div class="flex gap-2">
+            <button type="button" onclick="document.getElementById('reject-form').classList.add('hidden'); document.getElementById('reject-btn').classList.remove('hidden');" class="btn-secondary flex-1">
+              Cancel
+            </button>
+            <button type="submit" class="btn-danger flex-1">
+              Submit Rejection
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Status Info -->
+    <div class="card">
+      <div class="card-header">
+        <h3 class="text-lg font-medium text-slate-900">Status</h3>
+      </div>
+      <div class="card-body">
+        <dl class="space-y-3 text-sm">
+          <div class="flex justify-between">
+            <dt class="text-slate-500">Current Status</dt>
+            <dd class="font-medium">
+              {% if request_obj.status == 'pending' %}
+                <span class="text-amber-600">Pending</span>
+              {% elif request_obj.status == 'approved' or request_obj.status == 'issued' %}
+                <span class="text-green-600">{{ request_obj.get_status_display }}</span>
+              {% elif request_obj.status == 'rejected' %}
+                <span class="text-red-600">Rejected</span>
+              {% endif %}
+            </dd>
+          </div>
+          <div class="flex justify-between">
+            <dt class="text-slate-500">Requested</dt>
+            <dd class="font-medium">{{ request_obj.requested_at|timesince }} ago</dd>
+          </div>
+        </dl>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

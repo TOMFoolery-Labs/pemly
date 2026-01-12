@@ -123,6 +123,8 @@ class UserCreateView(SuperAdminRequiredMixin, View):
                 ip_address=get_client_ip(request),
                 user_agent=request.META.get('HTTP_USER_AGENT', '')[:500]
             )
+            # Refresh the profile relationship to get the updated role
+            user.refresh_from_db()
             messages.success(
                 request,
                 f"User '{user.username}' created successfully with role {user.profile.get_role_display()}."
