@@ -740,7 +740,7 @@ setup_ssl() {
         fi
     else
         if prompt_yes_no "Proceed with Let's Encrypt certificate?"; then
-            if certbot --nginx -d "${DOMAIN_NAME}"; then
+            if certbot --nginx -d "${DOMAIN_NAME}" < /dev/tty; then
                 log_success "SSL certificate obtained and configured"
                 SSL_CONFIGURED=true
             else
