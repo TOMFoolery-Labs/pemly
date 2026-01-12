@@ -99,14 +99,20 @@
 <div class="mb-8">
   <h2 class="text-lg font-medium text-slate-900 mb-4">Quick Actions</h2>
   <div class="flex gap-4">
+    {% if can_issue_certificates %}
     <a href="{% url 'core:certificate_create' %}" class="btn-primary">
       <svg class="h-4 w-4 mr-2 -ml-1" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
       </svg>
       Issue Certificate
     </a>
+    {% endif %}
     <a href="{% url 'core:certificate_list' %}" class="btn-secondary">
-      View All Certificates
+      {% if user.profile.role == 'certificate_requester' %}
+        View My Certificates
+      {% else %}
+        View All Certificates
+      {% endif %}
     </a>
   </div>
 </div>

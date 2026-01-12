@@ -2,10 +2,11 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import ListView
 
 from core.models import AuditLog
+from core.permissions import CanViewAuditLogMixin
 
 
-class AuditLogView(LoginRequiredMixin, ListView):
-    """View audit logs."""
+class AuditLogView(CanViewAuditLogMixin, ListView):
+    """View audit logs (Managers, Auditors, and Admins only)."""
 
     model = AuditLog
     template_name = 'audit/list.html'

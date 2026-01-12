@@ -1,0 +1,201 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ action }} User{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold text-slate-900">{{ action }} User</h1>
+      <p class="mt-1 text-sm text-slate-500">
+        {% if is_edit %}
+          Update user details and role for {{ user_being_edited.username }}
+        {% else %}
+          Create a new user account with role assignment
+        {% endif %}
+      </p>
+    </div>
+    <a href="{% url 'accounts:user_list' %}" class="btn-secondary">
+      <svg class="h-4 w-4 mr-2 -ml-1" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+      </svg>
+      Back to Users
+    </a>
+  </div>
+</div>
+
+<div class="card max-w-3xl">
+  <div class="card-body">
+    <form method="post" class="space-y-6">
+      {% csrf_token %}
+
+      {% if form.non_field_errors %}
+      <div class="alert-danger">
+        {% for error in form.non_field_errors %}
+          <p>{{ error }}</p>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <!-- Username (not editable on edit) -->
+      {% if is_edit %}
+      <div>
+        <label class="form-label">Username</label>
+        <div class="mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-700">
+          {{ user_being_edited.username }}
+        </div>
+        <p class="mt-1 text-sm text-slate-500">Username cannot be changed</p>
+      </div>
+      {% else %}
+      <div>
+        <label for="id_username" class="form-label">Username *</label>
+        {{ form.username }}
+        {% if form.username.help_text %}
+          <p class="mt-1 text-sm text-slate-500">{{ form.username.help_text }}</p>
+        {% endif %}
+        {% if form.username.errors %}
+          <p class="form-error">{{ form.username.errors.0 }}</p>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      <!-- Email -->
+      <div>
+        <label for="id_email" class="form-label">Email *</label>
+        {{ form.email }}
+        {% if form.email.errors %}
+          <p class="form-error">{{ form.email.errors.0 }}</p>
+        {% endif %}
+      </div>
+
+      <!-- Name Fields -->
+      <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+        <div>
+          <label for="id_first_name" class="form-label">First Name</label>
+          {{ form.first_name }}
+          {% if form.first_name.errors %}
+            <p class="form-error">{{ form.first_name.errors.0 }}</p>
+          {% endif %}
+        </div>
+        <div>
+          <label for="id_last_name" class="form-label">Last Name</label>
+          {{ form.last_name }}
+          {% if form.last_name.errors %}
+            <p class="form-error">{{ form.last_name.errors.0 }}</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Role -->
+      <div>
+        <label for="id_role" class="form-label">Role *</label>
+        {{ form.role }}
+        {% if form.role.help_text %}
+          <p class="mt-1 text-sm text-slate-500">{{ form.role.help_text }}</p>
+        {% endif %}
+        {% if form.role.errors %}
+          <p class="form-error">{{ form.role.errors.0 }}</p>
+        {% endif %}
+
+        <!-- Role descriptions -->
+        <div class="mt-3 space-y-2 text-sm text-slate-600 bg-slate-50 p-3 rounded-lg">
+          <p class="font-medium text-slate-700">Role Descriptions:</p>
+          <ul class="list-disc list-inside space-y-1 ml-2">
+            <li><strong>Super Admin:</strong> Full system access including user management (max 2)</li>
+            <li><strong>Administrator:</strong> Full access except user management</li>
+            <li><strong>Certificate Manager:</strong> Issue/revoke certificates, approve requests</li>
+            <li><strong>Certificate Requester:</strong> Submit requests, view only own certificates</li>
+            <li><strong>Auditor:</strong> Read-only access to certificates and audit logs</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Password (for new users or password change) -->
+      {% if is_edit %}
+      <div class="border-t border-slate-200 pt-6">
+        <div class="flex items-center mb-4">
+          {{ form.change_password }}
+          <label for="id_change_password" class="ml-2 text-sm font-medium text-slate-700">
+            Change Password
+          </label>
+        </div>
+
+        <div id="password-fields" class="space-y-4" style="display: none;">
+          <div>
+            <label for="id_new_password" class="form-label">New Password *</label>
+            {{ form.new_password }}
+            {% if form.new_password.help_text %}
+              <p class="mt-1 text-sm text-slate-500">{{ form.new_password.help_text }}</p>
+            {% endif %}
+            {% if form.new_password.errors %}
+              <p class="form-error">{{ form.new_password.errors.0 }}</p>
+            {% endif %}
+          </div>
+          <div>
+            <label for="id_new_password_confirm" class="form-label">Confirm New Password *</label>
+            {{ form.new_password_confirm }}
+            {% if form.new_password_confirm.errors %}
+              <p class="form-error">{{ form.new_password_confirm.errors.0 }}</p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% else %}
+      <div class="border-t border-slate-200 pt-6">
+        <div>
+          <label for="id_password" class="form-label">Password *</label>
+          {{ form.password }}
+          {% if form.password.help_text %}
+            <p class="mt-1 text-sm text-slate-500">{{ form.password.help_text }}</p>
+          {% endif %}
+          {% if form.password.errors %}
+            <p class="form-error">{{ form.password.errors.0 }}</p>
+          {% endif %}
+        </div>
+        <div class="mt-4">
+          <label for="id_password_confirm" class="form-label">Confirm Password *</label>
+          {{ form.password_confirm }}
+          {% if form.password_confirm.errors %}
+            <p class="form-error">{{ form.password_confirm.errors.0 }}</p>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Submit Buttons -->
+      <div class="flex items-center justify-end gap-3 pt-6 border-t border-slate-200">
+        <a href="{% url 'accounts:user_list' %}" class="btn-secondary">
+          Cancel
+        </a>
+        <button type="submit" class="btn-primary" data-loading-text="Saving...">
+          {% if is_edit %}
+            Update User
+          {% else %}
+            Create User
+          {% endif %}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if is_edit %}
+<script>
+  // Show/hide password fields based on checkbox
+  document.addEventListener('DOMContentLoaded', function() {
+    const checkbox = document.getElementById('id_change_password');
+    const passwordFields = document.getElementById('password-fields');
+
+    checkbox.addEventListener('change', function() {
+      passwordFields.style.display = this.checked ? 'block' : 'none';
+    });
+
+    // Show password fields if there are errors
+    {% if form.new_password.errors or form.new_password_confirm.errors %}
+    checkbox.checked = true;
+    passwordFields.style.display = 'block';
+    {% endif %}
+  });
+</script>
+{% endif %}
+{% endblock %}

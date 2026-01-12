@@ -22,7 +22,7 @@
     <p class="mt-1 text-sm text-slate-500">{{ certificate.get_type_display }}</p>
   </div>
   <div class="flex items-center gap-3">
-    {% if certificate.status == 'active' %}
+    {% if certificate.status == 'active' and can_revoke_certificates %}
     <a href="{% url 'core:certificate_revoke' pk=certificate.pk %}" class="btn-danger">
       Revoke
     </a>

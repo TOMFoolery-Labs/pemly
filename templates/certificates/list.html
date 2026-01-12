@@ -5,15 +5,29 @@
 {% block content %}
 <div class="mb-8 flex items-center justify-between">
   <div>
-    <h1 class="text-2xl font-semibold text-slate-900">Certificates</h1>
-    <p class="mt-1 text-sm text-slate-500">Manage issued certificates</p>
+    <h1 class="text-2xl font-semibold text-slate-900">
+      {% if user.profile.role == 'certificate_requester' %}
+        My Certificates
+      {% else %}
+        Certificates
+      {% endif %}
+    </h1>
+    <p class="mt-1 text-sm text-slate-500">
+      {% if user.profile.role == 'certificate_requester' %}
+        View your certificates
+      {% else %}
+        Manage issued certificates
+      {% endif %}
+    </p>
   </div>
+  {% if can_issue_certificates %}
   <a href="{% url 'core:certificate_create' %}" class="btn-primary">
     <svg class="h-4 w-4 mr-2 -ml-1" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
       <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
     </svg>
     Issue Certificate
   </a>
+  {% endif %}
 </div>
 
 <!-- Filters -->
@@ -118,8 +132,14 @@
             {% if search or current_status or current_type %}
             No certificates match your filters.
             {% else %}
-            No certificates issued yet.
-            <a href="{% url 'core:certificate_create' %}" class="text-primary-600 hover:underline">Issue your first certificate</a>
+              {% if user.profile.role == 'certificate_requester' %}
+                No certificates found. You can request certificates once the approval workflow is enabled.
+              {% else %}
+                No certificates issued yet.
+                {% if can_issue_certificates %}
+                <a href="{% url 'core:certificate_create' %}" class="text-primary-600 hover:underline">Issue your first certificate</a>
+                {% endif %}
+              {% endif %}
             {% endif %}
           </td>
         </tr>
