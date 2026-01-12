@@ -562,6 +562,68 @@ install_systemd_service() {
     fi
 }
 
+configure_selinux() {
+    # Check if SELinux is installed and enforcing
+    if ! command -v getenforce &>/dev/null; then
+        log_info "SELinux not installed, skipping configuration"
+        return
+    fi
+
+    local selinux_status
+    selinux_status=$(getenforce 2>/dev/null || echo "Disabled")
+
+    if [[ "${selinux_status}" == "Disabled" ]]; then
+        log_info "SELinux is disabled, skipping configuration"
+        return
+    fi
+
+    log_info "Configuring SELinux for Pemly (SELinux is ${selinux_status})..."
+
+    # Install SELinux policy tools if not present
+    if ! command -v semanage &>/dev/null || ! command -v checkmodule &>/dev/null; then
+        log_info "Installing SELinux policy tools..."
+        ${PKG_INSTALL} policycoreutils-python-utils selinux-policy-devel
+    fi
+
+    # Set file context for the socket directory
+    # This allows nginx to access files in /run/pemly
+    log_info "Setting SELinux file context for /run/pemly..."
+    semanage fcontext -a -t httpd_var_run_t "/run/pemly(/.*)?" 2>/dev/null || \
+        semanage fcontext -m -t httpd_var_run_t "/run/pemly(/.*)?" 2>/dev/null || true
+    restorecon -Rv /run/pemly 2>/dev/null || true
+
+    # Compile and install the policy module
+    # This allows nginx (httpd_t) to connect to gunicorn (unconfined_service_t)
+    local policy_dir="${INSTALL_DIR}/deploy/systemd"
+    local policy_te="${policy_dir}/pemly-selinux.te"
+
+    if [[ -f "${policy_te}" ]]; then
+        log_info "Compiling and installing SELinux policy module..."
+        cd "${policy_dir}"
+
+        # Check if module is already installed
+        if semodule -l 2>/dev/null | grep -q "^pemly-selinux"; then
+            log_info "SELinux policy module already installed, updating..."
+            semodule -r pemly-selinux 2>/dev/null || true
+        fi
+
+        # Compile the policy module
+        if checkmodule -M -m -o pemly-selinux.mod pemly-selinux.te 2>/dev/null; then
+            semodule_package -o pemly-selinux.pp -m pemly-selinux.mod
+            semodule -i pemly-selinux.pp
+            log_success "SELinux policy module installed"
+
+            # Clean up compiled files
+            rm -f pemly-selinux.mod pemly-selinux.pp
+        else
+            log_warn "Failed to compile SELinux policy module"
+            log_info "You may need to manually configure SELinux or set it to permissive"
+        fi
+    else
+        log_warn "SELinux policy file not found: ${policy_te}"
+    fi
+}
+
 configure_nginx() {
     log_info "Configuring nginx (HTTP only for initial setup)..."
 
@@ -723,6 +785,10 @@ uninstall() {
     rm -f /etc/nginx/conf.d/pemly.conf
     systemctl reload nginx 2>/dev/null || true
 
+    log_info "Removing SELinux configuration..."
+    semodule -r pemly-selinux 2>/dev/null || true
+    semanage fcontext -d "/run/pemly(/.*)?" 2>/dev/null || true
+
     log_info "Removing application files..."
     rm -rf "${INSTALL_DIR}"
 
@@ -825,6 +891,7 @@ main() {
     fi
 
     install_systemd_service
+    configure_selinux
 
     if [[ "${SKIP_NGINX}" != "true" ]]; then
         configure_nginx

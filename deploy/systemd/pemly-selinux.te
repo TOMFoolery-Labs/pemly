@@ -1,0 +1,12 @@
+module pemly-selinux 1.0;
+
+require {
+    type httpd_t;
+    type unconfined_service_t;
+    class unix_stream_socket connectto;
+}
+
+#============= httpd_t ==============
+# Allow nginx (httpd_t) to connect to gunicorn socket
+# Gunicorn runs as unconfined_service_t when started via systemd
+allow httpd_t unconfined_service_t:unix_stream_socket connectto;
