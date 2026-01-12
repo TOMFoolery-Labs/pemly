@@ -839,6 +839,14 @@ upgrade() {
         cp -a "${INSTALL_DIR}/storage" "${storage_backup}/"
     fi
 
+    # Backup venv directory
+    local venv_backup=""
+    if [[ -d "${VENV_DIR}" ]]; then
+        log_info "Backing up Python virtual environment..."
+        venv_backup=$(mktemp -d)
+        cp -a "${VENV_DIR}" "${venv_backup}/"
+    fi
+
     # Update application files
     if [[ -d "${INSTALL_DIR}/.git" ]]; then
         # Git-based installation - just pull
@@ -858,13 +866,16 @@ upgrade() {
             if [[ -n "${storage_backup}" ]]; then
                 rm -rf "${storage_backup}"
             fi
+            if [[ -n "${venv_backup}" ]]; then
+                rm -rf "${venv_backup}"
+            fi
             die "Failed to download release. Current installation unchanged."
         fi
 
         # Download succeeded - now replace the old installation
         log_info "Installing new version..."
 
-        # Remove old files (except storage which we backed up)
+        # Remove old files (except storage and venv which we backed up)
         rm -rf "${INSTALL_DIR:?}"
 
         # Move new version into place
@@ -885,6 +896,13 @@ upgrade() {
         rm -rf "${INSTALL_DIR}/storage"
         cp -a "${storage_backup}/storage" "${INSTALL_DIR}/"
         rm -rf "${storage_backup}"
+    fi
+
+    # Restore venv directory
+    if [[ -n "${venv_backup}" ]] && [[ -d "${venv_backup}/venv" ]]; then
+        log_info "Restoring Python virtual environment..."
+        cp -a "${venv_backup}/venv" "${INSTALL_DIR}/"
+        rm -rf "${venv_backup}"
     fi
 
     # Fix ownership
