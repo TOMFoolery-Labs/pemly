@@ -396,6 +396,38 @@ build_frontend() {
     log_success "Frontend assets built"
 }
 
+load_existing_env() {
+    # Load variables from existing .env file
+    local env_file="${INSTALL_DIR}/.env"
+
+    if [[ ! -f "${env_file}" ]]; then
+        return 1
+    fi
+
+    # Extract DOMAIN_NAME from DJANGO_ALLOWED_HOSTS or CSRF_TRUSTED_ORIGINS
+    DOMAIN_NAME=$(grep '^DJANGO_ALLOWED_HOSTS=' "${env_file}" | cut -d'=' -f2 | cut -d',' -f1)
+
+    # Extract database info from DATABASE_URL
+    # Format: postgres://user:password@host:port/database
+    local db_url
+    db_url=$(grep '^DATABASE_URL=' "${env_file}" | cut -d'=' -f2-)
+
+    if [[ -n "${db_url}" ]]; then
+        # Parse DATABASE_URL
+        DB_USER=$(echo "${db_url}" | sed -n 's|postgres://\([^:]*\):.*|\1|p')
+        DB_PASSWORD=$(echo "${db_url}" | sed -n 's|postgres://[^:]*:\([^@]*\)@.*|\1|p')
+        DB_HOST=$(echo "${db_url}" | sed -n 's|postgres://[^@]*@\([^:]*\):.*|\1|p')
+        DB_PORT=$(echo "${db_url}" | sed -n 's|postgres://[^@]*@[^:]*:\([^/]*\)/.*|\1|p')
+        DB_NAME=$(echo "${db_url}" | sed -n 's|postgres://[^/]*/\(.*\)|\1|p')
+    fi
+
+    # Export for use by other functions
+    export DB_HOST DB_PORT DB_NAME DB_USER DB_PASSWORD DOMAIN_NAME
+
+    log_info "Loaded configuration from existing .env file"
+    return 0
+}
+
 configure_environment() {
     log_info "Configuring environment..."
 
@@ -404,6 +436,7 @@ configure_environment() {
     if [[ -f "${env_file}" ]] && [[ "${NON_INTERACTIVE}" != "true" ]]; then
         if ! prompt_yes_no "Environment file exists. Overwrite?"; then
             log_info "Keeping existing environment configuration"
+            load_existing_env
             return
         fi
     fi
