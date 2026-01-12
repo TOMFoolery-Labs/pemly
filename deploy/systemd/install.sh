@@ -9,6 +9,7 @@
 #   sudo ./install.sh [OPTIONS]
 #
 # Options:
+#   --upgrade         Upgrade existing installation to latest version
 #   --no-ssl          Skip Let's Encrypt SSL setup (HTTP only)
 #   --skip-deps       Skip system dependency installation
 #   --skip-db         Skip database setup (use existing database)
@@ -762,6 +763,124 @@ setup_ssl() {
 }
 
 # =============================================================================
+# Upgrade Function
+# =============================================================================
+
+upgrade() {
+    echo "=============================================="
+    echo "  Pemly Certificate Manager - Upgrade"
+    echo "=============================================="
+    echo
+
+    # Check that Pemly is installed
+    if [[ ! -d "${INSTALL_DIR}" ]] || [[ ! -f "${INSTALL_DIR}/manage.py" ]]; then
+        die "Pemly is not installed at ${INSTALL_DIR}. Run without --upgrade to install."
+    fi
+
+    log_info "Upgrading Pemly installation..."
+
+    # Stop the service
+    log_info "Stopping Pemly service..."
+    systemctl stop pemly 2>/dev/null || true
+
+    # Backup .env file
+    local saved_env=""
+    if [[ -f "${INSTALL_DIR}/.env" ]]; then
+        log_info "Backing up .env file..."
+        saved_env=$(cat "${INSTALL_DIR}/.env")
+    fi
+
+    # Backup storage directory
+    local storage_backup=""
+    if [[ -d "${INSTALL_DIR}/storage" ]]; then
+        log_info "Backing up storage directory..."
+        storage_backup=$(mktemp -d)
+        cp -a "${INSTALL_DIR}/storage" "${storage_backup}/"
+    fi
+
+    # Update application files
+    if [[ -d "${INSTALL_DIR}/.git" ]]; then
+        # Git-based installation - just pull
+        log_info "Updating from git..."
+        cd "${INSTALL_DIR}"
+        sudo -u "${PEMLY_USER}" git pull
+    else
+        # Release-based installation - download new release
+        log_info "Downloading latest release..."
+
+        # Remove old files (except what we've backed up)
+        rm -rf "${INSTALL_DIR:?}"
+        mkdir -p "${INSTALL_DIR}"
+
+        if ! download_release; then
+            # Restore backup if download failed
+            if [[ -n "${saved_env}" ]]; then
+                mkdir -p "${INSTALL_DIR}"
+                echo "${saved_env}" > "${INSTALL_DIR}/.env"
+            fi
+            if [[ -n "${storage_backup}" ]] && [[ -d "${storage_backup}/storage" ]]; then
+                cp -a "${storage_backup}/storage" "${INSTALL_DIR}/"
+                rm -rf "${storage_backup}"
+            fi
+            die "Failed to download release. Installation restored."
+        fi
+    fi
+
+    # Restore .env file
+    if [[ -n "${saved_env}" ]]; then
+        log_info "Restoring .env file..."
+        echo "${saved_env}" > "${INSTALL_DIR}/.env"
+        chown "${PEMLY_USER}:${PEMLY_GROUP}" "${INSTALL_DIR}/.env"
+        chmod 600 "${INSTALL_DIR}/.env"
+    fi
+
+    # Restore storage directory
+    if [[ -n "${storage_backup}" ]] && [[ -d "${storage_backup}/storage" ]]; then
+        log_info "Restoring storage directory..."
+        rm -rf "${INSTALL_DIR}/storage"
+        cp -a "${storage_backup}/storage" "${INSTALL_DIR}/"
+        rm -rf "${storage_backup}"
+    fi
+
+    # Fix ownership
+    chown -R "${PEMLY_USER}:${PEMLY_GROUP}" "${INSTALL_DIR}"
+
+    # Update Python dependencies
+    log_info "Updating Python dependencies..."
+    sudo -u "${PEMLY_USER}" "${VENV_DIR}/bin/pip" install --upgrade pip
+    sudo -u "${PEMLY_USER}" "${VENV_DIR}/bin/pip" install -r "${INSTALL_DIR}/requirements.txt"
+
+    # Run migrations
+    log_info "Running database migrations..."
+    cd "${INSTALL_DIR}"
+    sudo -u "${PEMLY_USER}" DJANGO_SETTINGS_MODULE=pkife.settings.production "${VENV_DIR}/bin/python" manage.py migrate
+
+    # Collect static files
+    log_info "Collecting static files..."
+    sudo -u "${PEMLY_USER}" DJANGO_SETTINGS_MODULE=pkife.settings.production "${VENV_DIR}/bin/python" manage.py collectstatic --noinput
+
+    # Restart service
+    log_info "Starting Pemly service..."
+    systemctl start pemly
+
+    # Wait and check status
+    sleep 2
+    if systemctl is-active --quiet pemly; then
+        log_success "Pemly service started successfully"
+    else
+        log_error "Pemly service failed to start. Check logs: journalctl -u pemly -e"
+    fi
+
+    echo
+    echo "=============================================="
+    log_success "Pemly upgrade complete!"
+    echo "=============================================="
+    echo
+    log_info "Service status:  sudo systemctl status pemly"
+    log_info "View logs:       sudo journalctl -u pemly -f"
+}
+
+# =============================================================================
 # Uninstall Function
 # =============================================================================
 
@@ -821,12 +940,14 @@ parse_args() {
     SKIP_SSL=false
     NON_INTERACTIVE=false
     DO_UNINSTALL=false
+    DO_UPGRADE=false
     FORCE_INSTALL=false
     SSL_CONFIGURED=false
     INSTALLED_FROM_RELEASE=false
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
+            --upgrade)        DO_UPGRADE=true ;;
             --no-ssl)         SKIP_SSL=true ;;
             --skip-deps)      SKIP_DEPS=true ;;
             --skip-db)        SKIP_DB=true ;;
@@ -864,6 +985,11 @@ main() {
 
     if [[ "${DO_UNINSTALL}" == "true" ]]; then
         uninstall
+        exit 0
+    fi
+
+    if [[ "${DO_UPGRADE}" == "true" ]]; then
+        upgrade
         exit 0
     fi
 
