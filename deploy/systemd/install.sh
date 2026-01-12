@@ -273,6 +273,9 @@ create_user() {
 download_release() {
     # Try to download the latest release tarball
     # Returns 0 on success, 1 on failure
+    # Args: $1 = target directory (defaults to INSTALL_DIR)
+    local target_dir="${1:-${INSTALL_DIR}}"
+
     local latest_release
     latest_release=$(curl -sL --fail https://api.github.com/repos/TOMFoolery-Labs/pemly/releases/latest 2>/dev/null | grep '"tag_name"' | cut -d'"' -f4)
 
@@ -285,7 +288,7 @@ download_release() {
     log_info "Downloading release ${latest_release}..."
 
     # Download and extract (tarball has pemly/ prefix)
-    if curl -sL --fail "${tarball_url}" | tar -xz -C "${INSTALL_DIR}" --strip-components=1; then
+    if curl -sL --fail "${tarball_url}" | tar -xz -C "${target_dir}" --strip-components=1; then
         INSTALLED_FROM_RELEASE=true
         log_success "Downloaded release ${latest_release}"
         return 0
@@ -777,6 +780,11 @@ upgrade() {
         die "Pemly is not installed at ${INSTALL_DIR}. Run without --upgrade to install."
     fi
 
+    # Check for required tools
+    if ! command -v curl &>/dev/null; then
+        die "curl is required for upgrades. Install it with: ${PKG_INSTALL} curl"
+    fi
+
     log_info "Upgrading Pemly installation..."
 
     # Stop the service
@@ -808,22 +816,26 @@ upgrade() {
         # Release-based installation - download new release
         log_info "Downloading latest release..."
 
-        # Remove old files (except what we've backed up)
-        rm -rf "${INSTALL_DIR:?}"
-        mkdir -p "${INSTALL_DIR}"
+        # Download to temporary directory first
+        local temp_dir=$(mktemp -d)
+        mkdir -p "${temp_dir}"
 
-        if ! download_release; then
-            # Restore backup if download failed
-            if [[ -n "${saved_env}" ]]; then
-                mkdir -p "${INSTALL_DIR}"
-                echo "${saved_env}" > "${INSTALL_DIR}/.env"
-            fi
-            if [[ -n "${storage_backup}" ]] && [[ -d "${storage_backup}/storage" ]]; then
-                cp -a "${storage_backup}/storage" "${INSTALL_DIR}/"
+        if ! download_release "${temp_dir}"; then
+            rm -rf "${temp_dir}"
+            if [[ -n "${storage_backup}" ]]; then
                 rm -rf "${storage_backup}"
             fi
-            die "Failed to download release. Installation restored."
+            die "Failed to download release. Current installation unchanged."
         fi
+
+        # Download succeeded - now replace the old installation
+        log_info "Installing new version..."
+
+        # Remove old files (except storage which we backed up)
+        rm -rf "${INSTALL_DIR:?}"
+
+        # Move new version into place
+        mv "${temp_dir}" "${INSTALL_DIR}"
     fi
 
     # Restore .env file
