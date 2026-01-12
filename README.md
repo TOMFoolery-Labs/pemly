@@ -4,11 +4,16 @@ A Django web application that serves as a user-friendly frontend for CloudFlare'
 
 ## Features
 
-- **Certificate Authority Management** - Create and manage a root CA
+- **Role-Based Access Control (RBAC)** - 5 user roles with granular permissions and approval workflows
+- **Certificate Authority Management** - Create and manage root and intermediate CAs
 - **Certificate Issuance** - Issue certificates with server-side key generation or sign existing CSRs
-- **Certificate Types** - Support for Server TLS and Client Authentication certificates
-- **Subject Alternative Names** - Add DNS names and IP addresses to certificates
-- **Certificate Revocation** - Revoke certificates with standard revocation reasons
+- **Certificate Approval Workflow** - Certificate Requesters submit CSRs for Manager approval
+- **Certificate Types** - Support for Server TLS, Client Authentication, Code Signing, and Email (S/MIME)
+- **Subject Alternative Names** - Add DNS names, IP addresses, and email addresses to certificates
+- **Certificate Revocation** - Revoke certificates with CRL generation
+- **Certificate Profiles** - Reusable templates for certificate issuance
+- **Air-Gap Support** - Export/remove/restore CA private keys for offline storage
+- **Backup & Restore** - Full database and certificate backup/restore functionality
 - **Audit Logging** - Complete audit trail of all operations
 - **Modern UI** - Clean, responsive interface built with Tailwind CSS
 - **Security** - Private keys encrypted at rest using Fernet (AES-128-CBC)
@@ -24,12 +29,24 @@ A Django web application that serves as a user-friendly frontend for CloudFlare'
 
 ```
 pemly/
-├── accounts/              # Authentication (login/logout)
+├── accounts/              # User management and authentication
+│   ├── models.py          # UserProfile with RBAC roles
+│   ├── forms.py           # User creation/edit forms
+│   └── views.py           # Login, logout, user management views
 ├── core/                  # Main application
-│   ├── models.py          # CA, Certificate, AuditLog models
+│   ├── models.py          # CA, Certificate, PendingCertificateRequest, AuditLog
+│   ├── forms.py           # Certificate request forms
+│   ├── cfssl.py           # CFSSL certificate issuance helper
+│   ├── permissions.py     # RBAC permission mixins
 │   ├── services/          # CFSSL API client
 │   │   └── cfssl.py
-│   └── views/             # Dashboard, CA, Certificates, Audit views
+│   ├── templatetags/      # Custom template tags
+│   │   └── core_tags.py
+│   └── views/             # Dashboard, CA, Certificates, Approvals, Audit views
+│       ├── approvals.py   # Certificate approval workflow
+│       ├── ca.py
+│       ├── certificates.py
+│       └── ...
 ├── deploy/                # Deployment configurations
 │   └── docker/            # Docker deployment
 │       ├── Dockerfile
@@ -39,7 +56,8 @@ pemly/
 ├── pkife/
 │   └── settings/          # Split settings (base/dev/prod)
 ├── templates/             # Django templates
-│   ├── accounts/
+│   ├── accounts/          # User management UI
+│   ├── approvals/         # Certificate request approval UI
 │   ├── audit/
 │   ├── ca/
 │   ├── certificates/
@@ -327,6 +345,57 @@ Access Django admin at http://localhost:8000/admin/ for troubleshooting and low-
 3. Select a revocation reason
 4. Confirm revocation
 
+## Role-Based Access Control (RBAC)
+
+Pemly implements a comprehensive RBAC system with 5 distinct roles:
+
+### User Roles
+
+| Role | Permissions |
+|------|-------------|
+| **Super Admin** | Full system access including user management. Maximum of 2 per system. |
+| **Administrator** | Full access to CAs, certificates, profiles, and settings. Cannot manage users. |
+| **Certificate Manager** | Issue/revoke certificates, approve/reject requests, view audit logs. Cannot manage CAs or system settings. |
+| **Certificate Requester** | Submit certificate requests (CSRs) for approval, view only own certificates. |
+| **Auditor** | Read-only access to certificates, CAs, and audit logs. Cannot modify anything. |
+
+### Certificate Approval Workflow
+
+**For Certificate Requesters:**
+
+1. Generate a private key and CSR locally:
+   ```bash
+   openssl genrsa -out private.key 2048
+   openssl req -new -key private.key -out request.csr -subj "/CN=example.com/O=My Organization"
+   ```
+2. Navigate to Approvals > Request Certificate
+3. Paste the CSR and fill in certificate details
+4. Submit for approval
+5. Wait for a Certificate Manager to review
+6. Download the signed certificate once approved
+
+**For Certificate Managers:**
+
+1. View pending requests in the Approvals queue (badge shows count)
+2. Click on a request to view details and validate the CSR
+3. Approve to issue the certificate, or Reject with a reason
+4. All approvals are audited with reviewer identity
+
+### User Management
+
+Super Admins can manage users via the Users menu:
+
+- Create new users and assign roles
+- Edit user details and change roles (with Super Admin limit enforcement)
+- Delete users (cannot delete the last Super Admin)
+- All user management actions are logged to the audit trail
+
+### Separation of Duties
+
+- Users cannot approve their own certificate requests
+- Super Admin limit (2 maximum) enforced at system level
+- Certificate Requesters only see their own certificates (database-level filtering)
+
 ## Security Notes
 
 - Private keys are encrypted at rest using Fernet (AES-128-CBC + HMAC-SHA256)
@@ -357,11 +426,12 @@ See `PROJECT_PLAN.md` for the full implementation plan.
 - Certificate revocation with CRL generation
 - Backup and restore functionality
 - Docker deployment
+- Role-based access control (RBAC) with 5 user roles
+- Certificate approval workflow for separation of duties
 
 **Planned:**
 - Email notifications for expiring certificates
 - REST API for automation
-- Role-based access control (RBAC)
 
 ## License
 
