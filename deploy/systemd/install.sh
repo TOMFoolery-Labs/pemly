@@ -718,6 +718,11 @@ setup_ssl() {
             ${PKG_INSTALL} certbot python3-certbot-nginx
             ;;
         dnf)
+            # RHEL/CentOS/Rocky/Alma need EPEL for certbot
+            if ! rpm -q epel-release &>/dev/null; then
+                log_info "Enabling EPEL repository for certbot..."
+                ${PKG_INSTALL} epel-release
+            fi
             ${PKG_INSTALL} certbot python3-certbot-nginx
             ;;
     esac
