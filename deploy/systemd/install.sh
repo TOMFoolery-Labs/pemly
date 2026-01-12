@@ -547,6 +547,11 @@ setup_database() {
     log_info "Collecting static files..."
     sudo -u "${PEMLY_USER}" DJANGO_SETTINGS_MODULE=pkife.settings.production "${VENV_DIR}/bin/python" manage.py collectstatic --noinput
 
+    # Fix staticfiles permissions for nginx
+    chmod 755 "${INSTALL_DIR}"
+    chmod -R 755 "${INSTALL_DIR}/staticfiles"
+    chown -R "${PEMLY_USER}:www-data" "${INSTALL_DIR}/staticfiles"
+
     log_success "Database setup complete"
 }
 
@@ -921,6 +926,11 @@ upgrade() {
     # Collect static files
     log_info "Collecting static files..."
     sudo -u "${PEMLY_USER}" DJANGO_SETTINGS_MODULE=pkife.settings.production "${VENV_DIR}/bin/python" manage.py collectstatic --noinput
+
+    # Fix staticfiles permissions for nginx
+    chmod 755 "${INSTALL_DIR}"
+    chmod -R 755 "${INSTALL_DIR}/staticfiles"
+    chown -R "${PEMLY_USER}:www-data" "${INSTALL_DIR}/staticfiles"
 
     # Restart service
     log_info "Starting Pemly service..."
