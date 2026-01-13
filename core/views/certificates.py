@@ -510,6 +510,216 @@ class CertificateUnarchiveView(CanManageCertificatesMixin, View):
         return redirect('core:certificate_detail', pk=pk)
 
 
+class CertificateRenewView(CanManageCertificatesMixin, View):
+    """Renew a certificate (Certificate Managers and above only)."""
+
+    template_name = 'certificates/renew.html'
+
+    def get(self, request, pk):
+        # Get the certificate to renew
+        old_certificate = get_object_or_404(Certificate, pk=pk)
+
+        # Check if CA is still available and can sign
+        if not old_certificate.ca.can_sign:
+            messages.error(request, "The issuing CA is no longer available or cannot sign certificates.")
+            return redirect('core:certificate_detail', pk=pk)
+
+        # Check if renewing more than 30 days early
+        early_renewal_warning = False
+        if old_certificate.days_until_expiry and old_certificate.days_until_expiry > 30:
+            early_renewal_warning = True
+
+        # Pre-fill form with certificate data
+        form = CertificateCreateForm(initial={
+            'signing_ca': old_certificate.ca.id,
+            'generation_method': 'generate',  # Default to generate new key
+            'certificate_type': old_certificate.type,
+            'common_name': old_certificate.common_name,
+            'organization': old_certificate.organization,
+            'san_dns_names': '\n'.join(old_certificate.san_dns_names),
+            'san_ip_addresses': '\n'.join(old_certificate.san_ip_addresses),
+            'key_algorithm': old_certificate.key_algorithm,
+            'key_size': old_certificate.key_size,
+            'validity_days': old_certificate.validity_days,
+        })
+
+        return render(request, self.template_name, {
+            'form': form,
+            'old_certificate': old_certificate,
+            'early_renewal_warning': early_renewal_warning,
+            'can_reuse_key': old_certificate.has_private_key,
+        })
+
+    def post(self, request, pk):
+        old_certificate = get_object_or_404(Certificate, pk=pk)
+
+        # Check if CA can sign
+        if not old_certificate.ca.can_sign:
+            messages.error(request, "The issuing CA is no longer available or cannot sign certificates.")
+            return redirect('core:certificate_detail', pk=pk)
+
+        form = CertificateCreateForm(request.POST)
+
+        if form.is_valid():
+            try:
+                ca = old_certificate.ca
+                cfssl = CFSSLClient()
+
+                # Prepare hosts list
+                hosts = [form.cleaned_data['common_name']]
+                hosts.extend(form.cleaned_data['san_dns_names'])
+                hosts.extend(form.cleaned_data['san_ip_addresses'])
+
+                # Calculate expiry
+                validity_hours = form.cleaned_data['validity_days'] * 24
+
+                # Check if user wants to reuse key
+                reuse_key = request.POST.get('reuse_key') == 'true'
+                revoke_old = request.POST.get('revoke_old', 'true') == 'true'
+
+                private_key = None
+                csr = None
+
+                if reuse_key and old_certificate.has_private_key:
+                    # Reuse existing private key - generate new CSR with it
+                    from cryptography.hazmat.primitives.serialization import load_pem_private_key
+                    from cryptography.x509 import NameAttribute, Name, CertificateSigningRequestBuilder
+                    from cryptography.hazmat.primitives.asymmetric import rsa, ec
+                    from cryptography.hazmat.primitives import hashes
+                    from cryptography.x509.oid import NameOID
+
+                    old_private_key = old_certificate.get_private_key()
+                    private_key = old_private_key
+
+                    # Load the existing private key
+                    loaded_key = load_pem_private_key(old_private_key.encode(), password=None)
+
+                    # Build CSR
+                    subject_attrs = [
+                        NameAttribute(NameOID.COMMON_NAME, form.cleaned_data['common_name']),
+                    ]
+                    if form.cleaned_data['organization'] or ca.organization:
+                        subject_attrs.append(
+                            NameAttribute(NameOID.ORGANIZATION_NAME, form.cleaned_data['organization'] or ca.organization)
+                        )
+
+                    csr_builder = CertificateSigningRequestBuilder()
+                    csr_builder = csr_builder.subject_name(Name(subject_attrs))
+
+                    # Sign the CSR with the existing private key
+                    csr_obj = csr_builder.sign(loaded_key, hashes.SHA256())
+
+                    # Convert CSR to PEM
+                    from cryptography.hazmat.primitives.serialization import Encoding
+                    csr = csr_obj.public_bytes(Encoding.PEM).decode()
+                else:
+                    # Generate new key pair
+                    cert_request = CertificateRequest(
+                        common_name=form.cleaned_data['common_name'],
+                        organization=form.cleaned_data['organization'] or ca.organization,
+                        hosts=hosts,
+                        key_algorithm=form.cleaned_data['key_algorithm'],
+                        key_size=int(form.cleaned_data['key_size']),
+                    )
+                    key_result = cfssl.generate_key(cert_request)
+                    private_key = key_result['private_key']
+                    csr = key_result['csr']
+
+                # Sign the CSR
+                profile = 'server_tls'
+                if form.cleaned_data['certificate_type'] == CertificateType.CLIENT_AUTH:
+                    profile = 'client_auth'
+
+                sign_result = cfssl.sign(
+                    csr=csr,
+                    ca_cert=ca.certificate_pem,
+                    ca_key=ca.get_private_key(),
+                    profile=profile,
+                    hosts=hosts,
+                    expiry=f"{validity_hours}h",
+                    ocsp_url=ca.ocsp_responder_url if ca.ocsp_responder_url else None,
+                )
+
+                # Create new certificate record
+                new_certificate = Certificate(
+                    ca=ca,
+                    type=form.cleaned_data['certificate_type'],
+                    common_name=form.cleaned_data['common_name'],
+                    organization=form.cleaned_data['organization'] or ca.organization,
+                    san_dns_names=form.cleaned_data['san_dns_names'],
+                    san_ip_addresses=form.cleaned_data['san_ip_addresses'],
+                    key_algorithm=form.cleaned_data.get('key_algorithm', KeyAlgorithm.RSA),
+                    key_size=int(form.cleaned_data.get('key_size', 2048)),
+                    validity_days=form.cleaned_data['validity_days'],
+                    certificate_pem=sign_result['certificate'],
+                    status=CertificateStatus.ACTIVE,
+                    not_before=timezone.now(),
+                    not_after=timezone.now() + timedelta(days=form.cleaned_data['validity_days']),
+                    created_by=request.user,
+                    renewed_from=old_certificate,  # Link to old certificate
+                )
+
+                if private_key:
+                    new_certificate.set_private_key(private_key)
+
+                # Parse certificate for serial number and exact dates
+                try:
+                    cert = x509.load_pem_x509_certificate(sign_result['certificate'].encode())
+                    new_certificate.serial_number = format(cert.serial_number, 'x')
+                    new_certificate.not_before = cert.not_valid_before_utc
+                    new_certificate.not_after = cert.not_valid_after_utc
+                except Exception:
+                    pass
+
+                new_certificate.save()
+
+                # Revoke old certificate if requested
+                if revoke_old and old_certificate.status == CertificateStatus.ACTIVE:
+                    old_certificate.revoke(reason=RevocationReason.SUPERSEDED)
+
+                    # Refresh CRL
+                    try:
+                        ca.refresh_crl(force=True)
+                    except Exception:
+                        pass
+
+                # Log the renewal
+                AuditLog.log(
+                    action=AuditLog.Action.CERT_RENEWED,
+                    resource_type='certificate',
+                    resource_id=new_certificate.id,
+                    resource_name=new_certificate.common_name,
+                    user=request.user,
+                    details={
+                        'renewed_from_serial': old_certificate.serial_number,
+                        'renewed_from_id': str(old_certificate.id),
+                        'reused_key': reuse_key,
+                        'revoked_old': revoke_old,
+                        'validity_days': new_certificate.validity_days,
+                    },
+                    ip_address=request.META.get('REMOTE_ADDR'),
+                    user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
+                )
+
+                if revoke_old and old_certificate.status == CertificateStatus.REVOKED:
+                    messages.success(request, f"Certificate renewed successfully! Old certificate has been revoked.")
+                else:
+                    messages.success(request, f"Certificate renewed successfully!")
+
+                return redirect('core:certificate_detail', pk=new_certificate.pk)
+
+            except CFSSLError as e:
+                messages.error(request, f"CFSSL Error: {e.message}")
+            except Exception as e:
+                messages.error(request, f"An error occurred: {str(e)}")
+
+        return render(request, self.template_name, {
+            'form': form,
+            'old_certificate': old_certificate,
+            'can_reuse_key': old_certificate.has_private_key,
+        })
+
+
 class CertificateDownloadView(LoginRequiredMixin, View):
     """Download certificate files."""
 

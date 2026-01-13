@@ -21,6 +21,7 @@ from .certificates import (
     CertificateRevokeView,
     CertificateArchiveView,
     CertificateUnarchiveView,
+    CertificateRenewView,
     CertificateDownloadView,
     CSRParseView,
 )
@@ -64,6 +65,7 @@ __all__ = [
     'CertificateRevokeView',
     'CertificateArchiveView',
     'CertificateUnarchiveView',
+    'CertificateRenewView',
     'CertificateDownloadView',
     'CSRParseView',
     'CertificateRequestCreateView',
