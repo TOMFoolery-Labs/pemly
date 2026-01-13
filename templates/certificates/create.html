@@ -120,7 +120,7 @@
                class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg"
                placeholder="www.example.com"
                value="{{ form.common_name.value|default:'' }}">
-        <p class="form-help">{{ form.common_name.help_text }}</p>
+        <p class="form-help" id="cn_help_text">{{ form.common_name.help_text }}</p>
         {% if form.common_name.errors %}<p class="form-error">{{ form.common_name.errors.0 }}</p>{% endif %}
       </div>
 
@@ -289,6 +289,8 @@ async function applyProfile(profileId) {
     // Apply profile settings to form
     if (data.certificate_type) {
       document.getElementById('id_certificate_type').value = data.certificate_type;
+      // Update hints after changing certificate type
+      updateCertificateTypeHints();
     }
     if (data.validity_days) {
       document.getElementById('id_validity_days').value = data.validity_days;
@@ -315,9 +317,48 @@ async function applyProfile(profileId) {
   }
 }
 
+// Update form hints based on certificate type
+function updateCertificateTypeHints() {
+  const certType = document.getElementById('id_certificate_type').value;
+  const cnInput = document.getElementById('id_common_name');
+  const cnHelpText = document.getElementById('cn_help_text');
+
+  // Define hints for each certificate type
+  const hints = {
+    'server_tls': {
+      placeholder: 'www.example.com',
+      help: 'The primary hostname or identifier (e.g., \'www.example.com\')'
+    },
+    'client_auth': {
+      placeholder: 'john.doe or device-001',
+      help: 'Username, email, or device identifier (e.g., \'john.doe\', \'device-001\')'
+    },
+    'email_protection': {
+      placeholder: 'John Smith',
+      help: 'User\'s full name (e.g., \'John Smith\'). Add email address in SANs below.'
+    },
+    'document_signing': {
+      placeholder: 'Jane Doe',
+      help: 'Signer\'s full name or role (e.g., \'Jane Doe\', \'Finance Approver\')'
+    },
+    'user_authentication': {
+      placeholder: 'john.doe',
+      help: 'User\'s username or full name (e.g., \'john.doe\', \'John Doe\'). For AD, add UPN in SANs.'
+    }
+  };
+
+  const hint = hints[certType] || hints['server_tls'];
+  cnInput.placeholder = hint.placeholder;
+  cnHelpText.textContent = hint.help;
+}
+
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
   toggleCSRField();
+  updateCertificateTypeHints();
+
+  // Update hints when certificate type changes
+  document.getElementById('id_certificate_type').addEventListener('change', updateCertificateTypeHints);
 
   // Add CSR paste/change listener
   const csrTextarea = document.getElementById('id_csr_pem');
