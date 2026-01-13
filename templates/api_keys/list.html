@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block title %}API Keys{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-900">API Keys</h1>
+            <p class="mt-1 text-sm text-slate-600">Manage API keys for programmatic access</p>
+        </div>
+        <a href="{% url 'core:api_key_create' %}" class="btn-primary">
+            Create API Key
+        </a>
+    </div>
+
+    {% if api_keys %}
+    <div class="card">
+        <div class="card-body p-0">
+            <table class="min-w-full divide-y divide-slate-200">
+                <thead class="bg-slate-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Name</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Prefix</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Created</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Last Used</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-slate-200">
+                    {% for key in api_keys %}
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-slate-900">{{ key.name }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <code class="text-xs bg-slate-100 px-2 py-1 rounded">{{ key.prefix }}...</code>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% if key.is_valid %}
+                                <span class="badge-success">Active</span>
+                            {% else %}
+                                <span class="badge-error">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                            {{ key.created_at|date:"M d, Y" }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                            {% if key.last_used_at %}
+                                {{ key.last_used_at|date:"M d, Y g:i A" }}
+                            {% else %}
+                                <span class="text-slate-400">Never</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <form method="post" action="{% url 'core:api_key_delete' pk=key.id %}"
+                                  onsubmit="return confirm('Are you sure you want to delete this API key? This action cannot be undone.');"
+                                  class="inline">
+                                {% csrf_token %}
+                                <button type="submit" class="text-red-600 hover:text-red-900">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="card">
+        <div class="card-body text-center py-12">
+            <svg class="mx-auto h-12 w-12 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+            </svg>
+            <h3 class="mt-2 text-sm font-medium text-slate-900">No API keys</h3>
+            <p class="mt-1 text-sm text-slate-500">Get started by creating a new API key.</p>
+            <div class="mt-6">
+                <a href="{% url 'core:api_key_create' %}" class="btn-primary">
+                    Create API Key
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="mt-6 card border-blue-200">
+        <div class="card-header bg-blue-50">
+            <h3 class="text-sm font-medium text-blue-900">About API Keys</h3>
+        </div>
+        <div class="card-body text-sm text-slate-600 space-y-2">
+            <p>API keys allow you to access the PEMLY REST API for programmatic certificate management.</p>
+            <ul class="list-disc list-inside space-y-1 ml-2">
+                <li>Each API key is tied to your user account and has the same permissions</li>
+                <li>API keys are shown only once when created - store them securely</li>
+                <li>API documentation is available at <a href="/api/docs/" class="text-blue-600 hover:underline">/api/docs/</a></li>
+                <li>Use the header: <code class="bg-slate-100 px-1 rounded">Authorization: ApiKey pemly_prefix_secret</code></li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

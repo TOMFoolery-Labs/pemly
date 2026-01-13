@@ -74,6 +74,11 @@ urlpatterns = [
     path('settings/restore/upload/', views.RestoreUploadView.as_view(), name='restore_upload'),
     path('settings/restore/confirm/', views.RestoreConfirmView.as_view(), name='restore_confirm'),
 
+    # API Keys
+    path('api-keys/', views.APIKeyListView.as_view(), name='api_key_list'),
+    path('api-keys/create/', views.APIKeyCreateView.as_view(), name='api_key_create'),
+    path('api-keys/<uuid:pk>/delete/', views.APIKeyDeleteView.as_view(), name='api_key_delete'),
+
     # OCSP Responder (public, no auth required)
     path('ocsp/<uuid:ca_id>/', views.OCSPResponderView.as_view(), name='ocsp_responder'),
     path('ocsp/<uuid:ca_id>/<path:ocsp_request>', views.OCSPResponderGetView.as_view(), name='ocsp_responder_get'),

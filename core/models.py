@@ -817,6 +817,9 @@ class AuditLog(models.Model):
         CERT_REQUEST_SUBMITTED = 'cert_request_submitted', 'Certificate Request Submitted'
         CERT_REQUEST_APPROVED = 'cert_request_approved', 'Certificate Request Approved'
         CERT_REQUEST_REJECTED = 'cert_request_rejected', 'Certificate Request Rejected'
+        # API key actions
+        API_KEY_CREATED = 'api_key_created', 'API Key Created'
+        API_KEY_DELETED = 'api_key_deleted', 'API Key Deleted'
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
@@ -1257,3 +1260,67 @@ class ExpirationWarningLog(models.Model):
 
     def __str__(self):
         return f"{self.certificate.common_name} - {self.warning_threshold} day warning"
+
+
+class APIKey(models.Model):
+    """
+    API keys for programmatic access to the REST API.
+
+    Keys are hashed before storage for security. The plaintext key is only
+    shown once during creation.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(
+        max_length=255,
+        help_text="Descriptive name for this API key"
+    )
+    prefix = models.CharField(
+        max_length=8,
+        unique=True,
+        editable=False,
+        help_text="Short prefix for key identification (visible)"
+    )
+    hashed_key = models.CharField(
+        max_length=128,
+        editable=False,
+        help_text="Hashed API key for secure storage"
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='api_keys',
+        help_text="User associated with this API key"
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Whether this API key is currently active"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+    expires_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Optional expiration date for this key"
+    )
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "API Key"
+        verbose_name_plural = "API Keys"
+
+    def __str__(self):
+        return f"{self.name} ({self.prefix}...)"
+
+    @property
+    def is_valid(self):
+        """Check if the API key is currently valid."""
+        if not self.is_active:
+            return False
+        if self.expires_at and self.expires_at < timezone.now():
+            return False
+        return True
+
+    def mark_used(self):
+        """Update the last_used_at timestamp."""
+        self.last_used_at = timezone.now()
+        self.save(update_fields=['last_used_at'])

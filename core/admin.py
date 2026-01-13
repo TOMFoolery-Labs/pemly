@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import AuditLog, Certificate, CertificateAuthority, PendingCertificateRequest
+from .models import APIKey, AuditLog, Certificate, CertificateAuthority, PendingCertificateRequest
 
 
 @admin.register(CertificateAuthority)
@@ -134,3 +134,33 @@ class PendingCertificateRequestAdmin(admin.ModelAdmin):
             'fields': ('issued_certificate',)
         }),
     )
+
+
+@admin.register(APIKey)
+class APIKeyAdmin(admin.ModelAdmin):
+    """Admin interface for API Keys."""
+
+    list_display = ['name', 'prefix', 'user', 'is_active', 'created_at', 'last_used_at', 'expires_at']
+    list_filter = ['is_active', 'created_at', 'expires_at']
+    search_fields = ['name', 'prefix', 'user__username', 'user__email']
+    readonly_fields = ['id', 'prefix', 'hashed_key', 'created_at', 'last_used_at']
+    ordering = ['-created_at']
+
+    fieldsets = (
+        ('API Key Info', {
+            'fields': ('id', 'name', 'prefix', 'hashed_key')
+        }),
+        ('User', {
+            'fields': ('user',)
+        }),
+        ('Status', {
+            'fields': ('is_active', 'expires_at')
+        }),
+        ('Usage', {
+            'fields': ('created_at', 'last_used_at')
+        }),
+    )
+
+    def has_add_permission(self, request):
+        # API keys should be created through the API or dedicated views, not admin
+        return False

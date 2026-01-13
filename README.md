@@ -21,6 +21,7 @@ A Django web application that serves as a user-friendly frontend for CloudFlare'
 - **Air-Gap Support** - Export/remove/restore CA private keys for offline storage
 - **Backup & Restore** - Full database and certificate backup/restore functionality
 - **Audit Logging** - Complete audit trail of all operations
+- **REST API** - Comprehensive REST API for programmatic certificate management with API key authentication
 - **Modern UI** - Clean, responsive interface built with Tailwind CSS
 - **Security** - Private keys encrypted at rest using Fernet (AES-128-CBC)
 
@@ -361,6 +362,116 @@ PEMLY automatically generates deployment-ready certificate bundles for common we
 - **PKCS#12 (.p12)** - Binary format for Windows IIS, Java keystores, and browsers
 
 These bundles include the complete certificate chain (excluding root CA) and are ready to deploy without additional configuration.
+
+### REST API
+
+PEMLY provides a comprehensive REST API for programmatic certificate management, enabling automation and integration with your infrastructure.
+
+#### API Documentation
+
+Interactive API documentation is available at `/api/docs/` (Swagger UI) after starting the server. The OpenAPI schema is available at `/api/schema/`.
+
+#### Authentication
+
+The API uses API key authentication. To use the API:
+
+1. Log in to PEMLY web interface
+2. Navigate to your user profile or API Keys section
+3. Click "Create API Key"
+4. Give it a descriptive name and optional expiration date
+5. Copy the API key (shown only once)
+
+Include the API key in the Authorization header:
+
+```bash
+Authorization: ApiKey pemly_<prefix>_<secret>
+```
+
+#### Quick Start
+
+**Create an API key:**
+```bash
+curl -X POST https://pemly.example.com/api/v1/api-keys/ \
+  -H "Authorization: ApiKey pemly_abc123_..." \
+  -H "Content-Type: application/json" \
+  -d '{"name": "My API Key", "expires_at": null}'
+```
+
+**List certificate authorities:**
+```bash
+curl https://pemly.example.com/api/v1/cas/ \
+  -H "Authorization: ApiKey pemly_abc123_..."
+```
+
+**Issue a certificate:**
+```bash
+curl -X POST https://pemly.example.com/api/v1/certificates/ \
+  -H "Authorization: ApiKey pemly_abc123_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "ca": "<ca-uuid>",
+    "common_name": "app.example.com",
+    "type": "server_tls",
+    "key_algorithm": "rsa",
+    "key_size": 2048,
+    "validity_days": 365,
+    "san_dns_names": ["www.example.com", "api.example.com"]
+  }'
+```
+
+**List certificates:**
+```bash
+curl https://pemly.example.com/api/v1/certificates/ \
+  -H "Authorization: ApiKey pemly_abc123_..."
+```
+
+**Get certificate details:**
+```bash
+curl https://pemly.example.com/api/v1/certificates/<cert-id>/ \
+  -H "Authorization: ApiKey pemly_abc123_..."
+```
+
+**Revoke a certificate:**
+```bash
+curl -X POST https://pemly.example.com/api/v1/certificates/<cert-id>/revoke/ \
+  -H "Authorization: ApiKey pemly_abc123_..." \
+  -H "Content-Type: application/json" \
+  -d '{"reason": "key_compromise"}'
+```
+
+**Download certificate:**
+```bash
+curl https://pemly.example.com/api/v1/certificates/<cert-id>/download/?format=pem \
+  -H "Authorization: ApiKey pemly_abc123_..."
+```
+
+#### API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/certificates/` | GET | List all certificates |
+| `/api/v1/certificates/` | POST | Issue a new certificate |
+| `/api/v1/certificates/<id>/` | GET | Get certificate details |
+| `/api/v1/certificates/<id>/revoke/` | POST | Revoke a certificate |
+| `/api/v1/certificates/<id>/download/` | GET | Download certificate (PEM, chain) |
+| `/api/v1/cas/` | GET | List certificate authorities |
+| `/api/v1/cas/<id>/` | GET | Get CA details |
+| `/api/v1/requests/` | GET | List certificate requests |
+| `/api/v1/requests/` | POST | Submit a certificate request |
+| `/api/v1/requests/<id>/` | GET | Get request details |
+| `/api/v1/requests/<id>/approve/` | POST | Approve a pending request |
+| `/api/v1/requests/<id>/reject/` | POST | Reject a pending request |
+| `/api/v1/api-keys/` | GET | List your API keys |
+| `/api/v1/api-keys/` | POST | Create a new API key |
+| `/api/v1/api-keys/<id>/` | DELETE | Delete an API key |
+
+#### Permissions
+
+API requests respect the same role-based access control as the web interface:
+- **Certificate Requesters** - Can request certificates, view own certificates
+- **Certificate Managers** - Can issue, revoke, and approve certificates
+- **Administrators** - Full access to certificates and CAs
+- **Super Admins** - Full system access
 
 ### Certificate Types
 
@@ -869,8 +980,9 @@ See `PROJECT_PLAN.md` for the full implementation plan.
 - Certificate approval workflow for separation of duties
 - Email notifications for certificate events and expiration warnings
 
+- REST API for automation with API key authentication
+
 **Planned:**
-- REST API for automation
 - Automated certificate lifecycle management
 - Certificate auto-renewal with policy-based triggers
 
