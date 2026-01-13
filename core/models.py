@@ -18,6 +18,8 @@ class CertificateType(models.TextChoices):
     """Types of certificates that can be issued."""
     SERVER_TLS = 'server_tls', 'Server TLS'
     CLIENT_AUTH = 'client_auth', 'Client Authentication'
+    EMAIL_PROTECTION = 'email_protection', 'Email Protection (S/MIME)'
+    DOCUMENT_SIGNING = 'document_signing', 'Document Signing'
 
 
 class CertificateStatus(models.TextChoices):

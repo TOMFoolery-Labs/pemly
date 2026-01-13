@@ -310,16 +310,35 @@ class CFSSLClient:
                 "client auth"
             ]
         }
+        email_protection_settings = {
+            "expiry": expiry,
+            "usages": [
+                "signing",
+                "key encipherment",
+                "email protection"
+            ]
+        }
+        document_signing_settings = {
+            "expiry": expiry,
+            "usages": [
+                "signing",
+                "digital signature"
+            ]
+        }
 
         # Add AIA extension if OCSP URL or issuer URLs provided
         if ocsp_url:
             default_settings["ocsp_url"] = ocsp_url
             server_tls_settings["ocsp_url"] = ocsp_url
             client_auth_settings["ocsp_url"] = ocsp_url
+            email_protection_settings["ocsp_url"] = ocsp_url
+            document_signing_settings["ocsp_url"] = ocsp_url
         if issuer_urls:
             default_settings["issuer_urls"] = issuer_urls
             server_tls_settings["issuer_urls"] = issuer_urls
             client_auth_settings["issuer_urls"] = issuer_urls
+            email_protection_settings["issuer_urls"] = issuer_urls
+            document_signing_settings["issuer_urls"] = issuer_urls
 
         # Create config for signing profiles
         config = {
@@ -327,7 +346,9 @@ class CFSSLClient:
                 "default": default_settings,
                 "profiles": {
                     "server_tls": server_tls_settings,
-                    "client_auth": client_auth_settings
+                    "client_auth": client_auth_settings,
+                    "email_protection": email_protection_settings,
+                    "document_signing": document_signing_settings
                 }
             }
         }

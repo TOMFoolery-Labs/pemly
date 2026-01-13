@@ -10,7 +10,7 @@ A Django web application that serves as a user-friendly frontend for CloudFlare'
 - **Certificate Issuance** - Issue certificates with server-side key generation or sign existing CSRs
 - **Certificate Approval Workflow** - Certificate Requesters submit CSRs for Manager approval
 - **Email Notifications** - Configurable notifications for certificate events and expiration warnings
-- **Certificate Types** - Support for Server TLS and Client Authentication certificates
+- **Certificate Types** - Support for Server TLS, Client Authentication, Email Protection (S/MIME), and Document Signing certificates
 - **Subject Alternative Names** - Add DNS names, IP addresses, and email addresses to certificates
 - **Certificate Revocation** - Revoke certificates with reason codes and automatic CRL updates
 - **Certificate Renewal** - One-click certificate renewal with flexible key management options
@@ -350,6 +350,77 @@ Access Django admin at http://localhost:8000/admin/ for troubleshooting and low-
 3. Fill in certificate details (common name, SANs, validity)
 4. Click "Issue Certificate"
 5. Download the certificate files
+
+### Certificate Types
+
+Pemly supports four types of certificates, each optimized for specific use cases:
+
+#### Server TLS
+For securing web servers and internal HTTPS services.
+
+**Use cases:**
+- Internal web applications
+- API endpoints
+- Microservices communication (mTLS)
+- Development/staging environments
+
+**Configuration:**
+- Common Name: Server hostname (e.g., `app.internal.company.com`)
+- SANs: Additional DNS names or IP addresses
+
+#### Client Authentication
+For authenticating users and devices to services.
+
+**Use cases:**
+- VPN client authentication
+- WiFi (802.1X) authentication
+- API client certificates
+- Device authentication
+
+**Configuration:**
+- Common Name: Username or device identifier
+- SANs: Email addresses or additional identifiers
+
+#### Email Protection (S/MIME)
+For signing and encrypting email messages.
+
+**Use cases:**
+- Secure internal email communications
+- Email signing for legal/HR/finance departments
+- Compliance requirements (HIPAA, SOX)
+- Executive communications
+
+**Configuration:**
+- Common Name: User's full name (e.g., `John Smith`)
+- Organization: Your company name
+- SANs: User's email address(es) in Email field
+
+**Client Setup:**
+- **Outlook:** Settings > Account Settings > Change > More Settings > Security > Import certificate
+- **Thunderbird:** Preferences > Privacy & Security > Certificates > Manage Certificates
+- **Apple Mail:** Import certificate into Keychain, configure in Mail preferences
+
+**Important:** Recipients must import your CA certificate to verify signatures. For external partners, this may be impractical - S/MIME works best for internal communications.
+
+#### Document Signing
+For digitally signing PDF documents and files.
+
+**Use cases:**
+- Internal contract signing
+- PDF document workflows
+- Approval processes
+- Audit trail for documents
+
+**Configuration:**
+- Common Name: Signer's full name or role (e.g., `Jane Doe` or `Finance Approver`)
+- Organization: Your company name
+
+**Client Setup:**
+- **Adobe Acrobat:** Preferences > Signatures > Identities & Trusted Certificates > Import certificate
+- **PDF signing tools:** Import certificate and CA certificate into trust store
+- **Linux (pdfsig):** Add CA to system trust store
+
+**Important:** Document signatures are most useful for internal workflows. External partners will see "Unknown Issuer" warnings unless they import your CA certificate.
 
 ### Revoking Certificates
 

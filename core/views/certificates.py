@@ -277,9 +277,14 @@ class CertificateCreateView(CanManageCertificatesMixin, View):
 
                 # Sign the CSR
                 # Determine profile based on certificate type
-                profile = 'server_tls'
-                if form.cleaned_data['certificate_type'] == CertificateType.CLIENT_AUTH:
-                    profile = 'client_auth'
+                cert_type = form.cleaned_data['certificate_type']
+                profile_mapping = {
+                    CertificateType.SERVER_TLS: 'server_tls',
+                    CertificateType.CLIENT_AUTH: 'client_auth',
+                    CertificateType.EMAIL_PROTECTION: 'email_protection',
+                    CertificateType.DOCUMENT_SIGNING: 'document_signing',
+                }
+                profile = profile_mapping.get(cert_type, 'server_tls')
 
                 sign_result = cfssl.sign(
                     csr=csr,
@@ -626,9 +631,15 @@ class CertificateRenewView(CanManageCertificatesMixin, View):
                     csr = key_result['csr']
 
                 # Sign the CSR
-                profile = 'server_tls'
-                if form.cleaned_data['certificate_type'] == CertificateType.CLIENT_AUTH:
-                    profile = 'client_auth'
+                # Determine profile based on certificate type
+                cert_type = form.cleaned_data['certificate_type']
+                profile_mapping = {
+                    CertificateType.SERVER_TLS: 'server_tls',
+                    CertificateType.CLIENT_AUTH: 'client_auth',
+                    CertificateType.EMAIL_PROTECTION: 'email_protection',
+                    CertificateType.DOCUMENT_SIGNING: 'document_signing',
+                }
+                profile = profile_mapping.get(cert_type, 'server_tls')
 
                 sign_result = cfssl.sign(
                     csr=csr,
