@@ -29,8 +29,14 @@
     <a href="{% url 'core:certificate_revoke' pk=certificate.pk %}" class="btn-danger">
       Revoke
     </a>
+    <a href="{% url 'core:certificate_renew' pk=certificate.pk %}" class="btn-primary">
+      Renew
+    </a>
     {% endif %}
     {% if certificate.status == 'revoked' and not certificate.is_archived and can_revoke_certificates %}
+    <a href="{% url 'core:certificate_renew' pk=certificate.pk %}" class="btn-primary">
+      Renew
+    </a>
     <form method="post" action="{% url 'core:certificate_archive' pk=certificate.pk %}" class="inline">
       {% csrf_token %}
       <button type="submit" class="btn-secondary" onclick="return confirm('Archive this certificate? It will be hidden from the main list.');">
@@ -183,6 +189,42 @@
             <dd class="mt-1 text-sm text-slate-900">{{ certificate.archived_by.username|default:"N/A" }}</dd>
           </div>
         </dl>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Renewal Info -->
+    {% if certificate.is_renewal or certificate.has_been_renewed %}
+    <div class="card border-blue-200">
+      <div class="card-header bg-blue-50">
+        <h2 class="text-lg font-medium text-blue-900">Renewal Information</h2>
+      </div>
+      <div class="card-body">
+        {% if certificate.is_renewal %}
+        <div class="mb-3">
+          <p class="text-sm text-slate-700">
+            <strong>This certificate renews:</strong>
+            <a href="{% url 'core:certificate_detail' pk=certificate.renewed_from.pk %}" class="text-primary-600 hover:text-primary-700 font-mono">
+              {{ certificate.renewed_from.common_name }} ({{ certificate.renewed_from.serial_number }})
+            </a>
+          </p>
+        </div>
+        {% endif %}
+        {% if certificate.has_been_renewed %}
+        <div>
+          <p class="text-sm text-slate-700"><strong>This certificate has been renewed by:</strong></p>
+          <ul class="mt-2 space-y-1">
+            {% for renewal in certificate.renewals.all %}
+            <li class="text-sm">
+              <a href="{% url 'core:certificate_detail' pk=renewal.pk %}" class="text-primary-600 hover:text-primary-700 font-mono">
+                {{ renewal.common_name }} ({{ renewal.serial_number }})
+              </a>
+              <span class="text-slate-500">- {{ renewal.created_at|date:"M d, Y" }}</span>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
       </div>
     </div>
     {% endif %}

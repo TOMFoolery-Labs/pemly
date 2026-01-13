@@ -1,0 +1,191 @@
+{% extends 'base.html' %}
+
+{% block title %}Renew Certificate{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+  <h1 class="text-2xl font-semibold text-slate-900">Renew Certificate</h1>
+  <p class="mt-1 text-sm text-slate-500">Create a renewed version of this certificate</p>
+</div>
+
+<!-- Certificate Being Renewed -->
+<div class="card mb-6">
+  <div class="card-header">
+    <h2 class="text-lg font-medium text-slate-900">Original Certificate</h2>
+  </div>
+  <div class="card-body">
+    <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div>
+        <dt class="text-sm font-medium text-slate-500">Common Name</dt>
+        <dd class="mt-1 text-sm text-slate-900">{{ old_certificate.common_name }}</dd>
+      </div>
+      <div>
+        <dt class="text-sm font-medium text-slate-500">Status</dt>
+        <dd class="mt-1 text-sm">
+          {% if old_certificate.status == 'active' %}
+            <span class="badge-success">Active</span>
+          {% elif old_certificate.status == 'revoked' %}
+            <span class="badge-danger">Revoked</span>
+          {% elif old_certificate.status == 'expired' %}
+            <span class="badge-neutral">Expired</span>
+          {% endif %}
+        </dd>
+      </div>
+      <div>
+        <dt class="text-sm font-medium text-slate-500">Serial Number</dt>
+        <dd class="mt-1 text-sm text-slate-900 font-mono">{{ old_certificate.serial_number }}</dd>
+      </div>
+      <div>
+        <dt class="text-sm font-medium text-slate-500">Expires</dt>
+        <dd class="mt-1 text-sm text-slate-900">
+          {{ old_certificate.not_after|date:"M d, Y" }}
+          {% if old_certificate.days_until_expiry is not None %}
+            ({{ old_certificate.days_until_expiry }} days)
+          {% endif %}
+        </dd>
+      </div>
+    </dl>
+
+    {% if early_renewal_warning %}
+    <div class="alert-warning mt-4">
+      <p class="text-sm"><strong>Early Renewal Notice:</strong> This certificate doesn't expire for {{ old_certificate.days_until_expiry }} days. The renewed certificate's validity will start from today, not extend from the old certificate's expiration date.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<form method="post" class="max-w-3xl">
+  {% csrf_token %}
+
+  <!-- Renewal Options -->
+  <div class="card mb-6">
+    <div class="card-header">
+      <h2 class="text-lg font-medium text-slate-900">Renewal Options</h2>
+    </div>
+    <div class="card-body space-y-4">
+      {% if can_reuse_key %}
+      <div>
+        <label class="flex items-start">
+          <input type="checkbox" name="reuse_key" value="true" class="h-4 w-4 mt-0.5 text-primary-600 focus:ring-primary-500 border-slate-300 rounded">
+          <span class="ml-3">
+            <span class="text-sm font-medium text-slate-900">Reuse existing private key</span>
+            <p class="text-sm text-slate-500 mt-1">Keep the same private key from the original certificate. Only use this if you need to maintain the same key for compatibility reasons.</p>
+          </span>
+        </label>
+      </div>
+      {% endif %}
+
+      <div>
+        <label class="flex items-start">
+          <input type="checkbox" name="revoke_old" value="true" checked class="h-4 w-4 mt-0.5 text-primary-600 focus:ring-primary-500 border-slate-300 rounded">
+          <span class="ml-3">
+            <span class="text-sm font-medium text-slate-900">Revoke old certificate (Recommended)</span>
+            <p class="text-sm text-slate-500 mt-1">Automatically revoke the old certificate with reason "Superseded" after issuing the renewal. Leave unchecked only if you need to maintain both certificates temporarily for blue/green deployments.</p>
+          </span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- Certificate Details -->
+  <div class="card mb-6">
+    <div class="card-header">
+      <h2 class="text-lg font-medium text-slate-900">Certificate Details</h2>
+    </div>
+    <div class="card-body space-y-4">
+      <input type="hidden" name="signing_ca" value="{{ old_certificate.ca.pk }}">
+      <input type="hidden" name="generation_method" value="generate">
+
+      <div>
+        <label for="id_certificate_type" class="form-label">Certificate Type</label>
+        <select name="certificate_type" id="id_certificate_type" required
+                class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+          {% for value, label in form.certificate_type.field.choices %}
+          <option value="{{ value }}" {% if form.certificate_type.value == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label for="id_common_name" class="form-label">Common Name</label>
+        <input type="text" name="common_name" id="id_common_name" required
+               value="{{ form.common_name.value|default:'' }}"
+               class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg"
+               placeholder="example.com">
+        <p class="form-help">The primary hostname or identifier for this certificate</p>
+      </div>
+
+      <div>
+        <label for="id_organization" class="form-label">Organization</label>
+        <input type="text" name="organization" id="id_organization"
+               value="{{ form.organization.value|default:'' }}"
+               class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg"
+               placeholder="My Company">
+        <p class="form-help">Leave blank to inherit from CA</p>
+      </div>
+
+      <div>
+        <label for="id_san_dns_names" class="form-label">Subject Alternative Names (DNS)</label>
+        <textarea name="san_dns_names" id="id_san_dns_names" rows="3"
+                  class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg"
+                  placeholder="www.example.com&#10;api.example.com">{{ form.san_dns_names.value|default:'' }}</textarea>
+        <p class="form-help">Additional DNS names, one per line</p>
+      </div>
+
+      <div>
+        <label for="id_san_ip_addresses" class="form-label">Subject Alternative Names (IP)</label>
+        <textarea name="san_ip_addresses" id="id_san_ip_addresses" rows="2"
+                  class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg"
+                  placeholder="192.168.1.1&#10;10.0.0.1">{{ form.san_ip_addresses.value|default:'' }}</textarea>
+        <p class="form-help">IP addresses, one per line</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Key Configuration -->
+  <div class="card mb-6">
+    <div class="card-header">
+      <h2 class="text-lg font-medium text-slate-900">Key Configuration</h2>
+    </div>
+    <div class="card-body space-y-4">
+      <div>
+        <label for="id_key_algorithm" class="form-label">Key Algorithm</label>
+        <select name="key_algorithm" id="id_key_algorithm"
+                class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+          {% for value, label in form.key_algorithm.field.choices %}
+          <option value="{{ value }}" {% if form.key_algorithm.value == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label for="id_key_size" class="form-label">Key Size</label>
+        <select name="key_size" id="id_key_size"
+                class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+          {% for value, label in form.key_size.field.choices %}
+          <option value="{{ value }}" {% if form.key_size.value|stringformat:"s" == value|stringformat:"s" %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label for="id_validity_days" class="form-label">Validity (Days)</label>
+        <input type="number" name="validity_days" id="id_validity_days" required
+               value="{{ form.validity_days.value|default:'365' }}"
+               min="1" max="3650"
+               class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+        <p class="form-help">Number of days the certificate will be valid (1-3650)</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="flex items-center gap-3">
+    <button type="submit" class="btn-primary">
+      Renew Certificate
+    </button>
+    <a href="{% url 'core:certificate_detail' pk=old_certificate.pk %}" class="btn-secondary">
+      Cancel
+    </a>
+  </div>
+</form>
+{% endblock %}

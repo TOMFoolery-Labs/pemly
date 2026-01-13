@@ -503,6 +503,16 @@ class Certificate(models.Model):
         help_text="User who archived this certificate"
     )
 
+    # Renewal tracking
+    renewed_from = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='renewals',
+        help_text="The certificate that this one renews (if this is a renewal)"
+    )
+
     # Audit fields
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(
@@ -558,6 +568,16 @@ class Certificate(models.Model):
         """Check if certificate expires within 30 days."""
         days = self.days_until_expiry
         return days is not None and days <= 30
+
+    @property
+    def is_renewal(self) -> bool:
+        """Check if this certificate is a renewal of another certificate."""
+        return self.renewed_from is not None
+
+    @property
+    def has_been_renewed(self) -> bool:
+        """Check if this certificate has been renewed by another certificate."""
+        return self.renewals.exists()
 
     def get_chain_pem(self) -> str:
         """Return full certificate chain: cert → intermediate(s) → root."""
@@ -777,6 +797,7 @@ class AuditLog(models.Model):
         CA_CERT_IMPORTED = 'ca_cert_imported', 'CA Certificate Imported'
         CERT_ISSUED = 'cert_issued', 'Certificate Issued'
         CERT_REVOKED = 'cert_revoked', 'Certificate Revoked'
+        CERT_RENEWED = 'cert_renewed', 'Certificate Renewed'
         CERT_ARCHIVED = 'cert_archived', 'Certificate Archived'
         CERT_UNARCHIVED = 'cert_unarchived', 'Certificate Unarchived'
         CERT_DOWNLOADED = 'cert_downloaded', 'Certificate Downloaded'
