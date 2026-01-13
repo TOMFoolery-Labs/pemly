@@ -159,6 +159,11 @@ class CertificateListView(LoginRequiredMixin, ListView):
         # Get certificates visible to this user (role-based filtering)
         queryset = get_certificates_for_user(self.request.user).select_related('ca', 'created_by')
 
+        # Filter archived certificates (exclude by default)
+        show_archived = self.request.GET.get('show_archived', '').lower() == 'true'
+        if not show_archived:
+            queryset = queryset.filter(is_archived=False)
+
         # Filter by status
         status = self.request.GET.get('status')
         if status in [s.value for s in CertificateStatus]:
@@ -183,6 +188,7 @@ class CertificateListView(LoginRequiredMixin, ListView):
         context['current_status'] = self.request.GET.get('status', '')
         context['current_type'] = self.request.GET.get('type', '')
         context['search'] = self.request.GET.get('search', '')
+        context['show_archived'] = self.request.GET.get('show_archived', '').lower() == 'true'
         return context
 
 
@@ -433,6 +439,74 @@ class CertificateRevokeView(CanManageCertificatesMixin, View):
             logger.error(f"Failed to send certificate revoked notification: {e}")
 
         messages.success(request, f"Certificate '{certificate.common_name}' has been revoked.")
+        return redirect('core:certificate_detail', pk=pk)
+
+
+class CertificateArchiveView(CanManageCertificatesMixin, View):
+    """Archive a revoked certificate (Certificate Managers and above only)."""
+
+    def post(self, request, pk):
+        certificate = get_object_or_404(Certificate, pk=pk)
+
+        # Check if certificate is already archived
+        if certificate.is_archived:
+            messages.warning(request, "This certificate is already archived.")
+            return redirect('core:certificate_detail', pk=pk)
+
+        # Archive the certificate
+        try:
+            certificate.archive(user=request.user)
+        except ValueError as e:
+            messages.error(request, str(e))
+            return redirect('core:certificate_detail', pk=pk)
+
+        # Log the archive action
+        AuditLog.log(
+            action=AuditLog.Action.CERT_ARCHIVED,
+            resource_type='certificate',
+            resource_id=certificate.id,
+            resource_name=certificate.common_name,
+            user=request.user,
+            details={
+                'serial_number': certificate.serial_number,
+            },
+            ip_address=request.META.get('REMOTE_ADDR'),
+            user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
+        )
+
+        messages.success(request, f"Certificate '{certificate.common_name}' has been archived.")
+        return redirect('core:certificate_list')
+
+
+class CertificateUnarchiveView(CanManageCertificatesMixin, View):
+    """Unarchive a certificate (Certificate Managers and above only)."""
+
+    def post(self, request, pk):
+        certificate = get_object_or_404(Certificate, pk=pk)
+
+        # Check if certificate is archived
+        if not certificate.is_archived:
+            messages.warning(request, "This certificate is not archived.")
+            return redirect('core:certificate_detail', pk=pk)
+
+        # Unarchive the certificate
+        certificate.unarchive()
+
+        # Log the unarchive action
+        AuditLog.log(
+            action=AuditLog.Action.CERT_UNARCHIVED,
+            resource_type='certificate',
+            resource_id=certificate.id,
+            resource_name=certificate.common_name,
+            user=request.user,
+            details={
+                'serial_number': certificate.serial_number,
+            },
+            ip_address=request.META.get('REMOTE_ADDR'),
+            user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
+        )
+
+        messages.success(request, f"Certificate '{certificate.common_name}' has been unarchived.")
         return redirect('core:certificate_detail', pk=pk)
 
 

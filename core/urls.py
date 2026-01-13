@@ -40,6 +40,8 @@ urlpatterns = [
     path('certificates/request/', views.CertificateRequestCreateView.as_view(), name='certificate_request'),
     path('certificates/<uuid:pk>/', views.CertificateDetailView.as_view(), name='certificate_detail'),
     path('certificates/<uuid:pk>/revoke/', views.CertificateRevokeView.as_view(), name='certificate_revoke'),
+    path('certificates/<uuid:pk>/archive/', views.CertificateArchiveView.as_view(), name='certificate_archive'),
+    path('certificates/<uuid:pk>/unarchive/', views.CertificateUnarchiveView.as_view(), name='certificate_unarchive'),
     path('certificates/<uuid:pk>/download/<str:file_type>/', views.CertificateDownloadView.as_view(), name='certificate_download'),
 
     # Certificate Request Approval Workflow

@@ -18,6 +18,9 @@
       {% elif certificate.status == 'expired' %}
       <span class="badge-neutral">Expired</span>
       {% endif %}
+      {% if certificate.is_archived %}
+      <span class="badge-neutral">Archived</span>
+      {% endif %}
     </div>
     <p class="mt-1 text-sm text-slate-500">{{ certificate.get_type_display }}</p>
   </div>
@@ -26,6 +29,22 @@
     <a href="{% url 'core:certificate_revoke' pk=certificate.pk %}" class="btn-danger">
       Revoke
     </a>
+    {% endif %}
+    {% if certificate.status == 'revoked' and not certificate.is_archived and can_revoke_certificates %}
+    <form method="post" action="{% url 'core:certificate_archive' pk=certificate.pk %}" class="inline">
+      {% csrf_token %}
+      <button type="submit" class="btn-secondary" onclick="return confirm('Archive this certificate? It will be hidden from the main list.');">
+        Archive
+      </button>
+    </form>
+    {% endif %}
+    {% if certificate.is_archived and can_revoke_certificates %}
+    <form method="post" action="{% url 'core:certificate_unarchive' pk=certificate.pk %}" class="inline">
+      {% csrf_token %}
+      <button type="submit" class="btn-secondary">
+        Unarchive
+      </button>
+    </form>
     {% endif %}
     <a href="{% url 'core:certificate_list' %}" class="btn-secondary">
       Back to List
@@ -141,6 +160,27 @@
           <div>
             <dt class="text-sm font-medium text-slate-500">Reason</dt>
             <dd class="mt-1 text-sm text-slate-900">{{ certificate.get_revocation_reason_display }}</dd>
+          </div>
+        </dl>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Archive Info -->
+    {% if certificate.is_archived %}
+    <div class="card border-slate-200">
+      <div class="card-header bg-slate-50">
+        <h2 class="text-lg font-medium text-slate-900">Archive Details</h2>
+      </div>
+      <div class="card-body">
+        <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+          <div>
+            <dt class="text-sm font-medium text-slate-500">Archived At</dt>
+            <dd class="mt-1 text-sm text-slate-900">{{ certificate.archived_at|date:"M d, Y H:i" }}</dd>
+          </div>
+          <div>
+            <dt class="text-sm font-medium text-slate-500">Archived By</dt>
+            <dd class="mt-1 text-sm text-slate-900">{{ certificate.archived_by.username|default:"N/A" }}</dd>
           </div>
         </dl>
       </div>

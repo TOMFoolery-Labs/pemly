@@ -488,6 +488,21 @@ class Certificate(models.Model):
         blank=True
     )
 
+    # Archive status
+    is_archived = models.BooleanField(
+        default=False,
+        help_text="Whether this certificate has been archived"
+    )
+    archived_at = models.DateTimeField(null=True, blank=True)
+    archived_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='archived_certificates',
+        help_text="User who archived this certificate"
+    )
+
     # Audit fields
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(
@@ -556,6 +571,31 @@ class Certificate(models.Model):
         self.revoked_at = timezone.now()
         self.revocation_reason = reason
         self.save(update_fields=['status', 'revoked_at', 'revocation_reason'])
+
+    def archive(self, user: User) -> None:
+        """
+        Archive the certificate (only revoked certificates can be archived).
+
+        Args:
+            user: User performing the archive operation
+
+        Raises:
+            ValueError: If certificate is not revoked
+        """
+        if self.status != CertificateStatus.REVOKED:
+            raise ValueError("Only revoked certificates can be archived")
+
+        self.is_archived = True
+        self.archived_at = timezone.now()
+        self.archived_by = user
+        self.save(update_fields=['is_archived', 'archived_at', 'archived_by'])
+
+    def unarchive(self) -> None:
+        """Unarchive the certificate."""
+        self.is_archived = False
+        self.archived_at = None
+        self.archived_by = None
+        self.save(update_fields=['is_archived', 'archived_at', 'archived_by'])
 
 
 class PendingCertificateRequest(models.Model):
@@ -737,6 +777,8 @@ class AuditLog(models.Model):
         CA_CERT_IMPORTED = 'ca_cert_imported', 'CA Certificate Imported'
         CERT_ISSUED = 'cert_issued', 'Certificate Issued'
         CERT_REVOKED = 'cert_revoked', 'Certificate Revoked'
+        CERT_ARCHIVED = 'cert_archived', 'Certificate Archived'
+        CERT_UNARCHIVED = 'cert_unarchived', 'Certificate Unarchived'
         CERT_DOWNLOADED = 'cert_downloaded', 'Certificate Downloaded'
         USER_LOGIN = 'user_login', 'User Login'
         USER_LOGOUT = 'user_logout', 'User Logout'
