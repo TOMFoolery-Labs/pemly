@@ -53,6 +53,7 @@ def issue_certificate_from_csr(ca, csr_pem, cert_type=CertificateType.SERVER_TLS
         CertificateType.CLIENT_AUTH: 'client_auth',
         CertificateType.EMAIL_PROTECTION: 'email_protection',
         CertificateType.DOCUMENT_SIGNING: 'document_signing',
+        CertificateType.USER_AUTHENTICATION: 'user_authentication',
     }
     profile = profile_map.get(cert_type, 'default')
 

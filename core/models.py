@@ -20,6 +20,7 @@ class CertificateType(models.TextChoices):
     CLIENT_AUTH = 'client_auth', 'Client Authentication'
     EMAIL_PROTECTION = 'email_protection', 'Email Protection (S/MIME)'
     DOCUMENT_SIGNING = 'document_signing', 'Document Signing'
+    USER_AUTHENTICATION = 'user_authentication', 'User Authentication (Smart Card/PIV)'
 
 
 class CertificateStatus(models.TextChoices):

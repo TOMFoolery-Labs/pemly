@@ -283,6 +283,7 @@ class CertificateCreateView(CanManageCertificatesMixin, View):
                     CertificateType.CLIENT_AUTH: 'client_auth',
                     CertificateType.EMAIL_PROTECTION: 'email_protection',
                     CertificateType.DOCUMENT_SIGNING: 'document_signing',
+                    CertificateType.USER_AUTHENTICATION: 'user_authentication',
                 }
                 profile = profile_mapping.get(cert_type, 'server_tls')
 
@@ -638,6 +639,7 @@ class CertificateRenewView(CanManageCertificatesMixin, View):
                     CertificateType.CLIENT_AUTH: 'client_auth',
                     CertificateType.EMAIL_PROTECTION: 'email_protection',
                     CertificateType.DOCUMENT_SIGNING: 'document_signing',
+                    CertificateType.USER_AUTHENTICATION: 'user_authentication',
                 }
                 profile = profile_mapping.get(cert_type, 'server_tls')
 

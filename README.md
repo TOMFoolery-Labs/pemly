@@ -10,7 +10,7 @@ A Django web application that serves as a user-friendly frontend for CloudFlare'
 - **Certificate Issuance** - Issue certificates with server-side key generation or sign existing CSRs
 - **Certificate Approval Workflow** - Certificate Requesters submit CSRs for Manager approval
 - **Email Notifications** - Configurable notifications for certificate events and expiration warnings
-- **Certificate Types** - Support for Server TLS, Client Authentication, Email Protection (S/MIME), and Document Signing certificates
+- **Certificate Types** - Support for Server TLS, Client Authentication, Email Protection (S/MIME), Document Signing, and User Authentication (Smart Card/PIV) certificates
 - **Subject Alternative Names** - Add DNS names, IP addresses, and email addresses to certificates
 - **Certificate Revocation** - Revoke certificates with reason codes and automatic CRL updates
 - **Certificate Renewal** - One-click certificate renewal with flexible key management options
@@ -353,7 +353,7 @@ Access Django admin at http://localhost:8000/admin/ for troubleshooting and low-
 
 ### Certificate Types
 
-Pemly supports four types of certificates, each optimized for specific use cases:
+Pemly supports five types of certificates, each optimized for specific use cases:
 
 #### Server TLS
 For securing web servers and internal HTTPS services.
@@ -421,6 +421,43 @@ For digitally signing PDF documents and files.
 - **Linux (pdfsig):** Add CA to system trust store
 
 **Important:** Document signatures are most useful for internal workflows. External partners will see "Unknown Issuer" warnings unless they import your CA certificate.
+
+#### User Authentication (Smart Card/PIV)
+For strong authentication using hardware tokens and smart cards.
+
+**Use cases:**
+- Windows domain login with smart cards
+- YubiKey authentication
+- PIV/CAC cards for government/defense
+- Hardware-backed VPN authentication
+- Physical access control systems
+- Privileged access management (PAM)
+
+**Configuration:**
+- Common Name: User's full name or username (e.g., `john.doe` or `John Doe`)
+- Organization: Your company name
+- UPN (optional): Add as SAN for Active Directory integration
+
+**Client Setup:**
+- **Windows Domain:** Deploy CA certificate via Group Policy (GPO)
+  - Computer Configuration > Policies > Windows Settings > Security Settings > Public Key Policies > Trusted Root CAs
+  - Import user certificate to smart card or YubiKey using certutil or vendor tools
+- **YubiKey:** Use YubiKey Manager or `ykman` CLI to import certificate
+- **Smart Cards:** Use manufacturer's tools to write certificate to card
+- **macOS:** Import CA to System Keychain, user cert to smart card via Keychain Access
+
+**Active Directory Integration:**
+1. Deploy CA certificate to Trusted Root CAs via GPO
+2. Issue user certificates with UPN in Subject Alternative Name (format: `username@domain.com`)
+3. Enable smart card logon in Active Directory Users and Computers
+4. Configure workstations to require smart card login (optional)
+
+**Hardware Requirements:**
+- Smart card reader (USB or built-in)
+- Smart card, YubiKey, or other PIV-compatible token
+- Properly configured PKI infrastructure
+
+**Important:** User authentication certificates work perfectly with private CAs when deployed via GPO/MDM. They provide much stronger security than password-only authentication and are ideal for high-security environments.
 
 ### Revoking Certificates
 
