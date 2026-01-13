@@ -30,7 +30,7 @@ from .approvals import (
     PendingRequestRejectView,
 )
 from .audit import AuditLogView
-from .settings import SettingsView, CFSSLActionView
+from .settings import SettingsView, CFSSLActionView, SendTestEmailView
 from .backup import BackupView, RestoreUploadView, RestoreConfirmView
 from .profiles import (
     ProfileListView,
@@ -70,6 +70,7 @@ __all__ = [
     'AuditLogView',
     'SettingsView',
     'CFSSLActionView',
+    'SendTestEmailView',
     'ProfileListView',
     'ProfileCreateView',
     'ProfileEditView',

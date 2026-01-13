@@ -1,0 +1,41 @@
+{% extends "emails/base.html" %}
+
+{% block title %}Certificate Expiration Warning - Pemly PKI{% endblock %}
+
+{% block content %}
+<h2>Certificate Expiration Warning</h2>
+
+<p>Your certificate will expire soon. Please renew it to avoid service disruption.</p>
+
+<div class="info-box warning">
+    <dl>
+        <dt>Common Name:</dt>
+        <dd>{{ certificate.common_name }}</dd>
+
+        <dt>Serial Number:</dt>
+        <dd>{{ certificate.serial_number }}</dd>
+
+        <dt>Expires On:</dt>
+        <dd>{{ certificate.not_after|date:"F j, Y \a\t g:i A" }}</dd>
+
+        <dt>Days Until Expiration:</dt>
+        <dd><strong>{{ days_until_expiry }} days</strong></dd>
+
+        <dt>Certificate Type:</dt>
+        <dd>{{ certificate.get_type_display }}</dd>
+    </dl>
+</div>
+
+<a href="{{ certificate_url }}" class="button">View Certificate</a>
+
+<p style="margin-top: 24px;"><strong>Action Required:</strong></p>
+<ul>
+    <li>Request a renewal or new certificate before expiration</li>
+    <li>Update systems with the new certificate before the old one expires</li>
+    <li>Verify the new certificate is working before the deadline</li>
+</ul>
+
+<p style="font-size: 14px; color: #64748b;">
+    You will receive additional reminders as the expiration date approaches.
+</p>
+{% endblock %}

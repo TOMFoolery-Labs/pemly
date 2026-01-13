@@ -1,0 +1,37 @@
+{% extends "emails/base.html" %}
+
+{% block title %}Certificate Request Approved - Pemly PKI{% endblock %}
+
+{% block content %}
+<h2>Your Certificate Request Has Been Approved</h2>
+
+<p>Good news! Your certificate request has been approved and the certificate has been issued.</p>
+
+<div class="info-box success">
+    <dl>
+        <dt>Common Name:</dt>
+        <dd>{{ certificate.common_name }}</dd>
+
+        <dt>Serial Number:</dt>
+        <dd>{{ certificate.serial_number }}</dd>
+
+        <dt>Certificate Type:</dt>
+        <dd>{{ certificate.get_type_display }}</dd>
+
+        <dt>Valid From:</dt>
+        <dd>{{ certificate.not_before|date:"F j, Y" }}</dd>
+
+        <dt>Valid Until:</dt>
+        <dd>{{ certificate.not_after|date:"F j, Y" }}</dd>
+
+        <dt>Approved By:</dt>
+        <dd>{{ approver.get_full_name|default:approver.username }}</dd>
+    </dl>
+</div>
+
+<a href="{{ certificate_url }}" class="button">View Certificate</a>
+
+<p style="margin-top: 24px; font-size: 14px; color: #64748b;">
+    You can now download your certificate and use it in your applications.
+</p>
+{% endblock %}

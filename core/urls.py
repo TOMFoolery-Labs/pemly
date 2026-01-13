@@ -64,6 +64,7 @@ urlpatterns = [
     # Settings
     path('settings/', views.SettingsView.as_view(), name='settings'),
     path('settings/cfssl/', views.CFSSLActionView.as_view(), name='cfssl_action'),
+    path('settings/test-email/', views.SendTestEmailView.as_view(), name='send_test_email'),
 
     # Backup & Restore
     path('settings/backup/', views.BackupView.as_view(), name='backup'),

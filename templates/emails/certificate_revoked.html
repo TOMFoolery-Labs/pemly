@@ -1,0 +1,39 @@
+{% extends "emails/base.html" %}
+
+{% block title %}Certificate Revoked - Pemly PKI{% endblock %}
+
+{% block content %}
+<h2>Certificate Revocation Notice</h2>
+
+<p><strong>Important:</strong> One of your certificates has been revoked and is no longer valid.</p>
+
+<div class="info-box error">
+    <dl>
+        <dt>Common Name:</dt>
+        <dd>{{ certificate.common_name }}</dd>
+
+        <dt>Serial Number:</dt>
+        <dd>{{ certificate.serial_number }}</dd>
+
+        <dt>Revoked At:</dt>
+        <dd>{{ certificate.revoked_at|date:"F j, Y \a\t g:i A" }}</dd>
+
+        <dt>Revoked By:</dt>
+        <dd>{{ revoker.get_full_name|default:revoker.username }}</dd>
+
+        <dt>Revocation Reason:</dt>
+        <dd>{{ reason }}</dd>
+    </dl>
+</div>
+
+<p style="margin-top: 24px;"><strong>Action Required:</strong></p>
+<ul>
+    <li>Immediately stop using this certificate</li>
+    <li>Remove the certificate from all systems and applications</li>
+    <li>Request a new certificate if needed</li>
+</ul>
+
+<p style="font-size: 14px; color: #64748b;">
+    Revoked certificates should not be trusted. Update your systems to use a new certificate.
+</p>
+{% endblock %}

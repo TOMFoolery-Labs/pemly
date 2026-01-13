@@ -1,0 +1,42 @@
+{% extends "emails/base.html" %}
+
+{% block title %}New Certificate Request - Pemly PKI{% endblock %}
+
+{% block content %}
+<h2>New Certificate Request Submitted</h2>
+
+<p>A new certificate request has been submitted and requires your approval.</p>
+
+<div class="info-box">
+    <dl>
+        <dt>Requested By:</dt>
+        <dd>{{ requester.get_full_name|default:requester.username }} ({{ requester.email }})</dd>
+
+        <dt>Common Name:</dt>
+        <dd>{{ request.common_name }}</dd>
+
+        <dt>Certificate Type:</dt>
+        <dd>{{ request.get_type_display }}</dd>
+
+        <dt>Certificate Authority:</dt>
+        <dd>{{ request.ca.name }}</dd>
+
+        <dt>Validity:</dt>
+        <dd>{{ request.validity_days }} days</dd>
+
+        {% if request.san_dns_names %}
+        <dt>DNS SANs:</dt>
+        <dd>{{ request.san_dns_names|join:", " }}</dd>
+        {% endif %}
+
+        <dt>Submitted:</dt>
+        <dd>{{ request.created_at|date:"F j, Y \a\t g:i A" }}</dd>
+    </dl>
+</div>
+
+<a href="{{ request_url }}" class="button">Review Request</a>
+
+<p style="margin-top: 24px; font-size: 14px; color: #64748b;">
+    Please review and approve or reject this request as soon as possible.
+</p>
+{% endblock %}

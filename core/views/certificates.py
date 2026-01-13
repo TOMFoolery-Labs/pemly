@@ -413,6 +413,25 @@ class CertificateRevokeView(CanManageCertificatesMixin, View):
             user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
         )
 
+        # Send notification to certificate owner
+        try:
+            from core.services.email import send_notification
+            import logging
+
+            send_notification(
+                to_user=certificate.created_by,
+                notification_type='certificate_revoked',
+                context={
+                    'subject': f'Certificate Revoked: {certificate.common_name}',
+                    'certificate': certificate,
+                    'revoker': request.user,
+                    'reason': certificate.get_revocation_reason_display(),
+                }
+            )
+        except Exception as e:
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to send certificate revoked notification: {e}")
+
         messages.success(request, f"Certificate '{certificate.common_name}' has been revoked.")
         return redirect('core:certificate_detail', pk=pk)
 

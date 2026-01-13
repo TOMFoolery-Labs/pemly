@@ -144,12 +144,326 @@
       </div>
     </div>
 
+    <!-- Email Notifications Configuration -->
+    <div class="card">
+      <div class="card-header">
+        <h2 class="text-lg font-medium text-slate-900">Email Notifications</h2>
+      </div>
+      <div class="card-body space-y-6">
+        <!-- Enable Email -->
+        <div class="flex items-start">
+          <div class="flex items-center h-5">
+            <input type="checkbox" name="email_enabled" id="id_email_enabled"
+                   {% if form.email_enabled.value %}checked{% endif %}
+                   class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded">
+          </div>
+          <div class="ml-3">
+            <label for="id_email_enabled" class="text-sm font-medium text-slate-900">
+              Enable Email Notifications
+            </label>
+            <p class="text-sm text-slate-500">
+              Send email notifications for certificate events
+            </p>
+          </div>
+        </div>
+
+        <!-- Email Backend Selection -->
+        <div>
+          <label for="id_email_backend" class="form-label">Email Service</label>
+          <select name="email_backend" id="id_email_backend"
+                  class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+            <option value="smtp" {% if form.email_backend.value == 'smtp' %}selected{% endif %}>SMTP</option>
+            <option value="sendgrid" {% if form.email_backend.value == 'sendgrid' %}selected{% endif %}>SendGrid API</option>
+            <option value="mailgun" {% if form.email_backend.value == 'mailgun' %}selected{% endif %}>Mailgun API</option>
+            <option value="ses" {% if form.email_backend.value == 'ses' %}selected{% endif %}>AWS SES</option>
+          </select>
+          <p class="form-help">Choose which email service to use</p>
+        </div>
+
+        <!-- From Address -->
+        <div class="grid grid-cols-2 gap-6">
+          <div>
+            <label for="id_email_from_address" class="form-label">From Email Address</label>
+            <input type="email" name="email_from_address" id="id_email_from_address"
+                   value="{{ form.email_from_address.value|default:'' }}"
+                   placeholder="pki@example.com"
+                   class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+            <p class="form-help">Email address to send from</p>
+          </div>
+          <div>
+            <label for="id_email_from_name" class="form-label">From Name</label>
+            <input type="text" name="email_from_name" id="id_email_from_name"
+                   value="{{ form.email_from_name.value|default:'Pemly PKI' }}"
+                   class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+            <p class="form-help">Display name for emails</p>
+          </div>
+        </div>
+
+        <!-- SMTP Settings (conditionally shown) -->
+        <div id="smtp-settings" class="space-y-6 border-t pt-6">
+          <h3 class="text-md font-medium text-slate-900">SMTP Configuration</h3>
+
+          <div class="grid grid-cols-2 gap-6">
+            <div>
+              <label for="id_smtp_host" class="form-label">SMTP Host</label>
+              <input type="text" name="smtp_host" id="id_smtp_host"
+                     value="{{ form.smtp_host.value|default:'' }}"
+                     placeholder="smtp.example.com"
+                     class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+            </div>
+            <div>
+              <label for="id_smtp_port" class="form-label">SMTP Port</label>
+              <input type="number" name="smtp_port" id="id_smtp_port"
+                     value="{{ form.smtp_port.value|default:587 }}"
+                     class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-6">
+            <div>
+              <label for="id_smtp_username" class="form-label">Username</label>
+              <input type="text" name="smtp_username" id="id_smtp_username"
+                     value="{{ form.smtp_username.value|default:'' }}"
+                     class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+            </div>
+            <div>
+              <label for="id_smtp_password" class="form-label">Password</label>
+              <input type="password" name="smtp_password" id="id_smtp_password"
+                     placeholder="Leave blank to keep existing"
+                     class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+            </div>
+          </div>
+
+          <div class="flex items-start gap-6">
+            <div class="flex items-center h-5">
+              <input type="checkbox" name="smtp_use_tls" id="id_smtp_use_tls"
+                     {% if form.smtp_use_tls.value %}checked{% endif %}
+                     class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded">
+              <label for="id_smtp_use_tls" class="ml-2 text-sm text-slate-900">Use TLS</label>
+            </div>
+            <div class="flex items-center h-5">
+              <input type="checkbox" name="smtp_use_ssl" id="id_smtp_use_ssl"
+                     {% if form.smtp_use_ssl.value %}checked{% endif %}
+                     class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded">
+              <label for="id_smtp_use_ssl" class="ml-2 text-sm text-slate-900">Use SSL</label>
+            </div>
+          </div>
+        </div>
+
+        <!-- SendGrid Settings (conditionally shown) -->
+        <div id="sendgrid-settings" class="space-y-6 border-t pt-6" style="display: none;">
+          <h3 class="text-md font-medium text-slate-900">SendGrid Configuration</h3>
+          <div>
+            <label for="id_sendgrid_api_key" class="form-label">API Key</label>
+            <input type="password" name="sendgrid_api_key" id="id_sendgrid_api_key"
+                   placeholder="Leave blank to keep existing"
+                   class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+          </div>
+        </div>
+
+        <!-- Mailgun Settings (conditionally shown) -->
+        <div id="mailgun-settings" class="space-y-6 border-t pt-6" style="display: none;">
+          <h3 class="text-md font-medium text-slate-900">Mailgun Configuration</h3>
+          <div class="grid grid-cols-2 gap-6">
+            <div>
+              <label for="id_mailgun_domain" class="form-label">Domain</label>
+              <input type="text" name="mailgun_domain" id="id_mailgun_domain"
+                     value="{{ form.mailgun_domain.value|default:'' }}"
+                     placeholder="mg.example.com"
+                     class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+            </div>
+            <div>
+              <label for="id_mailgun_region" class="form-label">Region</label>
+              <select name="mailgun_region" id="id_mailgun_region"
+                      class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+                <option value="us" {% if form.mailgun_region.value == 'us' %}selected{% endif %}>US</option>
+                <option value="eu" {% if form.mailgun_region.value == 'eu' %}selected{% endif %}>EU</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label for="id_mailgun_api_key" class="form-label">API Key</label>
+            <input type="password" name="mailgun_api_key" id="id_mailgun_api_key"
+                   placeholder="Leave blank to keep existing"
+                   class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+          </div>
+        </div>
+
+        <!-- AWS SES Settings (conditionally shown) -->
+        <div id="ses-settings" class="space-y-6 border-t pt-6" style="display: none;">
+          <h3 class="text-md font-medium text-slate-900">AWS SES Configuration</h3>
+          <div class="grid grid-cols-2 gap-6">
+            <div>
+              <label for="id_ses_access_key_id" class="form-label">Access Key ID</label>
+              <input type="password" name="ses_access_key_id" id="id_ses_access_key_id"
+                     placeholder="Leave blank to keep existing"
+                     class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+            </div>
+            <div>
+              <label for="id_ses_secret_access_key" class="form-label">Secret Access Key</label>
+              <input type="password" name="ses_secret_access_key" id="id_ses_secret_access_key"
+                     placeholder="Leave blank to keep existing"
+                     class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+            </div>
+          </div>
+          <div>
+            <label for="id_ses_region" class="form-label">Region</label>
+            <input type="text" name="ses_region" id="id_ses_region"
+                   value="{{ form.ses_region.value|default:'us-east-1' }}"
+                   placeholder="us-east-1"
+                   class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+          </div>
+        </div>
+
+        <!-- Notification Preferences -->
+        <div class="border-t pt-6 space-y-4">
+          <h3 class="text-md font-medium text-slate-900">Notification Preferences</h3>
+
+          <div class="flex items-start">
+            <div class="flex items-center h-5">
+              <input type="checkbox" name="notify_on_request_submitted" id="id_notify_on_request_submitted"
+                     {% if form.notify_on_request_submitted.value %}checked{% endif %}
+                     class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded">
+            </div>
+            <div class="ml-3">
+              <label for="id_notify_on_request_submitted" class="text-sm font-medium text-slate-900">
+                New Certificate Request Submitted
+              </label>
+              <p class="text-sm text-slate-500">Notify managers when a new certificate request is submitted</p>
+            </div>
+          </div>
+
+          <div class="flex items-start">
+            <div class="flex items-center h-5">
+              <input type="checkbox" name="notify_on_request_approved" id="id_notify_on_request_approved"
+                     {% if form.notify_on_request_approved.value %}checked{% endif %}
+                     class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded">
+            </div>
+            <div class="ml-3">
+              <label for="id_notify_on_request_approved" class="text-sm font-medium text-slate-900">
+                Certificate Request Approved
+              </label>
+              <p class="text-sm text-slate-500">Notify requester when their request is approved</p>
+            </div>
+          </div>
+
+          <div class="flex items-start">
+            <div class="flex items-center h-5">
+              <input type="checkbox" name="notify_on_request_rejected" id="id_notify_on_request_rejected"
+                     {% if form.notify_on_request_rejected.value %}checked{% endif %}
+                     class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded">
+            </div>
+            <div class="ml-3">
+              <label for="id_notify_on_request_rejected" class="text-sm font-medium text-slate-900">
+                Certificate Request Rejected
+              </label>
+              <p class="text-sm text-slate-500">Notify requester when their request is rejected</p>
+            </div>
+          </div>
+
+          <div class="flex items-start">
+            <div class="flex items-center h-5">
+              <input type="checkbox" name="notify_on_certificate_revoked" id="id_notify_on_certificate_revoked"
+                     {% if form.notify_on_certificate_revoked.value %}checked{% endif %}
+                     class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded">
+            </div>
+            <div class="ml-3">
+              <label for="id_notify_on_certificate_revoked" class="text-sm font-medium text-slate-900">
+                Certificate Revoked
+              </label>
+              <p class="text-sm text-slate-500">Notify certificate owner when their certificate is revoked</p>
+            </div>
+          </div>
+
+          <div class="flex items-start">
+            <div class="flex items-center h-5">
+              <input type="checkbox" name="notify_expiration_warnings" id="id_notify_expiration_warnings"
+                     {% if form.notify_expiration_warnings.value %}checked{% endif %}
+                     class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded">
+            </div>
+            <div class="ml-3">
+              <label for="id_notify_expiration_warnings" class="text-sm font-medium text-slate-900">
+                Certificate Expiration Warnings
+              </label>
+              <p class="text-sm text-slate-500">Send warnings at 30, 14, and 7 days before expiration</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Test Email -->
+        <div class="border-t pt-6">
+          <h3 class="text-md font-medium text-slate-900 mb-4">Test Email Configuration</h3>
+          <div class="flex items-end gap-3">
+            <div class="flex-1">
+              <label for="test-email-recipient" class="form-label">Recipient Email</label>
+              <input type="email" id="test-email-recipient" name="test_email_recipient"
+                     placeholder="your@email.com"
+                     class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg">
+            </div>
+            <button type="button" id="send-test-email" class="btn-secondary">
+              Send Test Email
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="mt-6">
       <button type="submit" class="btn-primary" data-loading-text="Saving...">
         Save Settings
       </button>
     </div>
   </form>
+
+  <script>
+// Show/hide email backend settings based on selection
+document.addEventListener('DOMContentLoaded', function() {
+  const backendSelect = document.getElementById('id_email_backend');
+  const smtpSettings = document.getElementById('smtp-settings');
+  const sendgridSettings = document.getElementById('sendgrid-settings');
+  const mailgunSettings = document.getElementById('mailgun-settings');
+  const sesSettings = document.getElementById('ses-settings');
+
+  function updateBackendSettings() {
+    const backend = backendSelect.value;
+    smtpSettings.style.display = backend === 'smtp' ? 'block' : 'none';
+    sendgridSettings.style.display = backend === 'sendgrid' ? 'block' : 'none';
+    mailgunSettings.style.display = backend === 'mailgun' ? 'block' : 'none';
+    sesSettings.style.display = backend === 'ses' ? 'block' : 'none';
+  }
+
+  backendSelect.addEventListener('change', updateBackendSettings);
+  updateBackendSettings();
+
+  // Test email button
+  document.getElementById('send-test-email').addEventListener('click', function() {
+    const recipient = document.getElementById('test-email-recipient').value;
+    if (!recipient) {
+      alert('Please enter a recipient email address');
+      return;
+    }
+
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '{% url "core:send_test_email" %}';
+
+    const csrfInput = document.createElement('input');
+    csrfInput.type = 'hidden';
+    csrfInput.name = 'csrfmiddlewaretoken';
+    csrfInput.value = '{{ csrf_token }}';
+
+    const recipientInput = document.createElement('input');
+    recipientInput.type = 'hidden';
+    recipientInput.name = 'recipient';
+    recipientInput.value = recipient;
+
+    form.appendChild(csrfInput);
+    form.appendChild(recipientInput);
+    document.body.appendChild(form);
+    form.submit();
+  });
+});
+  </script>
 
   <!-- Backup & Restore Section -->
   <div class="card">

@@ -8,6 +8,7 @@ A Django web application that serves as a user-friendly frontend for CloudFlare'
 - **Certificate Authority Management** - Create and manage root and intermediate CAs
 - **Certificate Issuance** - Issue certificates with server-side key generation or sign existing CSRs
 - **Certificate Approval Workflow** - Certificate Requesters submit CSRs for Manager approval
+- **Email Notifications** - Configurable notifications for certificate events and expiration warnings
 - **Certificate Types** - Support for Server TLS, Client Authentication, Code Signing, and Email (S/MIME)
 - **Subject Alternative Names** - Add DNS names, IP addresses, and email addresses to certificates
 - **Certificate Revocation** - Revoke certificates with CRL generation
@@ -38,14 +39,19 @@ pemly/
 │   ├── forms.py           # Certificate request forms
 │   ├── cfssl.py           # CFSSL certificate issuance helper
 │   ├── permissions.py     # RBAC permission mixins
-│   ├── services/          # CFSSL API client
-│   │   └── cfssl.py
+│   ├── services/          # Service layer
+│   │   ├── cfssl.py       # CFSSL API client
+│   │   └── email.py       # Email notification service
+│   ├── management/        # Django management commands
+│   │   └── commands/
+│   │       └── send_expiration_warnings.py
 │   ├── templatetags/      # Custom template tags
 │   │   └── core_tags.py
 │   └── views/             # Dashboard, CA, Certificates, Approvals, Audit views
 │       ├── approvals.py   # Certificate approval workflow
 │       ├── ca.py
 │       ├── certificates.py
+│       ├── settings.py    # Settings and email configuration
 │       └── ...
 ├── deploy/                # Deployment configurations
 │   └── docker/            # Docker deployment
@@ -62,7 +68,9 @@ pemly/
 │   ├── ca/
 │   ├── certificates/
 │   ├── components/
-│   └── dashboard/
+│   ├── dashboard/
+│   ├── emails/            # Email notification templates
+│   └── settings/          # Settings page UI
 ├── static/
 │   └── css/               # Tailwind CSS (input + compiled output)
 └── storage/
@@ -345,6 +353,168 @@ Access Django admin at http://localhost:8000/admin/ for troubleshooting and low-
 3. Select a revocation reason
 4. Confirm revocation
 
+## Email Notifications
+
+Pemly includes a comprehensive email notification system to keep users informed about certificate lifecycle events and expiration warnings.
+
+### Supported Email Backends
+
+Configure one of the following email backends in Settings:
+
+- **SMTP** - Standard SMTP server (Gmail, Office365, etc.)
+- **SendGrid** - SendGrid API integration
+- **Mailgun** - Mailgun API integration
+- **AWS SES** - Amazon Simple Email Service
+
+### Configuration
+
+1. Navigate to **Settings > Email Notifications**
+2. Enable email notifications
+3. Select your email backend
+4. Configure from email address and display name
+5. Enter backend-specific credentials:
+   - **SMTP**: Host, port, username, password, TLS/SSL settings
+   - **SendGrid**: API key
+   - **Mailgun**: API key, domain, region
+   - **AWS SES**: Access key ID, secret access key, region
+6. Choose which notifications to enable (all enabled by default):
+   - New certificate request submitted (to managers)
+   - Certificate request approved (to requester)
+   - Certificate request rejected (to requester)
+   - Certificate revoked (to owner)
+   - Certificate expiration warnings
+7. Click **Send Test Email** to verify configuration
+8. Click **Save Settings**
+
+**Note:** All credentials are encrypted at rest using the same Fernet encryption key that protects private keys.
+
+### Notification Types
+
+| Event | Recipients | Description |
+|-------|-----------|-------------|
+| **Request Submitted** | Managers (Super Admin, Administrator, Certificate Manager) | Notifies managers when a new certificate request needs review |
+| **Request Approved** | Original requester | Notifies requester when their certificate request is approved and certificate is issued |
+| **Request Rejected** | Original requester | Notifies requester when their certificate request is rejected with the rejection reason |
+| **Certificate Revoked** | Certificate owner | Notifies the certificate owner when their certificate is revoked |
+| **Expiration Warning** | Certificate owner | Automatic warnings sent at 30, 14, and 7 days before certificate expiration |
+
+### Email Templates
+
+All emails use professional HTML templates with plain text fallback for maximum compatibility. Each email includes:
+
+- Clear subject line indicating the event
+- Certificate details (common name, serial number, etc.)
+- Action buttons linking to relevant pages
+- Guidance on next steps
+
+### Expiration Warnings
+
+Certificate expiration warnings are sent automatically via a Django management command that should be run daily via cron or systemd timer.
+
+**Manual execution:**
+
+```bash
+# Check for expiring certificates and send warnings
+python manage.py send_expiration_warnings
+
+# Dry run (see what would be sent without sending)
+python manage.py send_expiration_warnings --dry-run
+
+# Force send warnings even if already sent for this threshold
+python manage.py send_expiration_warnings --force
+```
+
+**Setup cron job (runs daily at 9 AM):**
+
+```bash
+crontab -e
+# Add:
+0 9 * * * cd /path/to/pemly && /path/to/venv/bin/python manage.py send_expiration_warnings
+```
+
+**Setup systemd timer (recommended for production):**
+
+Create `/etc/systemd/system/pemly-expiration-warnings.service`:
+
+```ini
+[Unit]
+Description=Pemly PKI Certificate Expiration Warnings
+After=network.target
+
+[Service]
+Type=oneshot
+User=pemly
+WorkingDirectory=/opt/pemly
+ExecStart=/opt/pemly/venv/bin/python manage.py send_expiration_warnings
+StandardOutput=journal
+StandardError=journal
+```
+
+Create `/etc/systemd/system/pemly-expiration-warnings.timer`:
+
+```ini
+[Unit]
+Description=Daily Pemly PKI expiration warnings
+Requires=pemly-expiration-warnings.service
+
+[Timer]
+OnCalendar=daily
+OnCalendar=09:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+
+Enable and start:
+
+```bash
+sudo systemctl enable pemly-expiration-warnings.timer
+sudo systemctl start pemly-expiration-warnings.timer
+```
+
+**Warning Behavior:**
+
+- Warnings are sent at 30, 14, and 7 days before expiration
+- Each warning is sent only once per certificate per threshold
+- Warnings are tracked in the database to prevent duplicates
+- If multiple thresholds apply, only the most urgent warning is sent per run
+
+### Error Handling
+
+Email failures are handled gracefully and never interrupt PKI workflows:
+
+- All email operations are wrapped in try/except blocks
+- Failures are logged but don't prevent certificate issuance, approval, or revocation
+- Email delivery status is not displayed to users (check logs for troubleshooting)
+- Test email feature provides immediate feedback on configuration issues
+
+### SMTP Configuration Examples
+
+**Gmail:**
+
+```
+SMTP Host: smtp.gmail.com
+SMTP Port: 587
+Username: your-email@gmail.com
+Password: App-specific password (not your Gmail password)
+Use TLS: ✓ Checked
+Use SSL: ☐ Unchecked
+```
+
+**Office 365:**
+
+```
+SMTP Host: smtp.office365.com
+SMTP Port: 587
+Username: your-email@yourdomain.com
+Password: Your password
+Use TLS: ✓ Checked
+Use SSL: ☐ Unchecked
+```
+
+**Note:** For Gmail, you must generate an [App Password](https://support.google.com/accounts/answer/185833) instead of using your regular password.
+
 ## Role-Based Access Control (RBAC)
 
 Pemly implements a comprehensive RBAC system with 5 distinct roles:
@@ -428,9 +598,9 @@ See `PROJECT_PLAN.md` for the full implementation plan.
 - Docker deployment
 - Role-based access control (RBAC) with 5 user roles
 - Certificate approval workflow for separation of duties
+- Email notifications for certificate events and expiration warnings
 
 **Planned:**
-- Email notifications for expiring certificates
 - REST API for automation
 
 ## License

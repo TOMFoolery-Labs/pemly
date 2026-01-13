@@ -1,0 +1,22 @@
+{% extends "emails/base.html" %}
+
+{% block title %}Test Email - Pemly PKI{% endblock %}
+
+{% block content %}
+<h2>Test Email Successful</h2>
+<p>This is a test email from Pemly PKI. If you're reading this, your email configuration is working correctly!</p>
+
+<div class="info-box success">
+    <p><strong>Email System Status:</strong> Configured and operational</p>
+    <p><strong>Application:</strong> {{ app_name }}</p>
+</div>
+
+<p>You can now expect to receive notifications for:</p>
+<ul>
+    <li>New certificate requests</li>
+    <li>Approved certificate requests</li>
+    <li>Rejected certificate requests</li>
+    <li>Revoked certificates</li>
+    <li>Certificate expiration warnings</li>
+</ul>
+{% endblock %}

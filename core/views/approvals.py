@@ -5,6 +5,8 @@ Certificate Requesters submit CSRs that must be approved by Certificate Managers
 Administrators, or Super Admins before being issued as certificates.
 """
 
+import logging
+
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
@@ -71,6 +73,38 @@ class CertificateRequestCreateView(LoginRequiredMixin, View):
                 ip_address=get_client_ip(request),
                 user_agent=request.META.get('HTTP_USER_AGENT', '')
             )
+
+            # Send notification to managers
+            try:
+                from core.services.email import send_bulk_notification
+                from accounts.models import UserProfile
+                from django.contrib.auth.models import User
+
+                # Get all managers who can approve requests
+                manager_users = User.objects.filter(
+                    profile__role__in=[
+                        UserProfile.Role.SUPER_ADMIN,
+                        UserProfile.Role.ADMINISTRATOR,
+                        UserProfile.Role.CERTIFICATE_MANAGER
+                    ]
+                )
+
+                send_bulk_notification(
+                    users=list(manager_users),
+                    notification_type='request_submitted',
+                    context={
+                        'subject': f'New Certificate Request: {pending_request.common_name}',
+                        'requester': request.user,
+                        'request': pending_request,
+                        'request_url': request.build_absolute_uri(
+                            reverse('core:pending_request_detail', args=[pending_request.pk])
+                        ),
+                    }
+                )
+            except Exception as e:
+                # Don't fail the request if email fails
+                logger = logging.getLogger(__name__)
+                logger.error(f"Failed to send request submitted notification: {e}")
 
             messages.success(
                 request,
@@ -266,6 +300,27 @@ class PendingRequestApproveView(CanManageCertificatesMixin, View):
                 user_agent=request.META.get('HTTP_USER_AGENT', '')
             )
 
+            # Send notification to requester
+            try:
+                from core.services.email import send_notification
+
+                send_notification(
+                    to_user=pending_request.requested_by,
+                    notification_type='request_approved',
+                    context={
+                        'subject': f'Certificate Request Approved: {certificate.common_name}',
+                        'request': pending_request,
+                        'certificate': certificate,
+                        'approver': request.user,
+                        'certificate_url': request.build_absolute_uri(
+                            reverse('core:certificate_detail', args=[certificate.pk])
+                        ),
+                    }
+                )
+            except Exception as e:
+                logger = logging.getLogger(__name__)
+                logger.error(f"Failed to send request approved notification: {e}")
+
             messages.success(
                 request,
                 f"Certificate request approved and certificate issued successfully. "
@@ -335,6 +390,24 @@ class PendingRequestRejectView(CanManageCertificatesMixin, View):
             ip_address=get_client_ip(request),
             user_agent=request.META.get('HTTP_USER_AGENT', '')
         )
+
+        # Send notification to requester
+        try:
+            from core.services.email import send_notification
+
+            send_notification(
+                to_user=pending_request.requested_by,
+                notification_type='request_rejected',
+                context={
+                    'subject': f'Certificate Request Rejected: {pending_request.common_name}',
+                    'request': pending_request,
+                    'rejector': request.user,
+                    'rejection_reason': pending_request.rejection_reason,
+                }
+            )
+        except Exception as e:
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to send request rejected notification: {e}")
 
         messages.success(
             request,

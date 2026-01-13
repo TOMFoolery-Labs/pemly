@@ -830,6 +830,146 @@ class AppSettings(models.Model):
         help_text="Port for CFSSL to listen on"
     )
 
+    # Email Configuration
+    email_enabled = models.BooleanField(
+        default=False,
+        help_text="Enable email notifications"
+    )
+
+    EMAIL_BACKEND_SMTP = 'smtp'
+    EMAIL_BACKEND_SENDGRID = 'sendgrid'
+    EMAIL_BACKEND_MAILGUN = 'mailgun'
+    EMAIL_BACKEND_SES = 'ses'
+
+    EMAIL_BACKEND_CHOICES = [
+        (EMAIL_BACKEND_SMTP, 'SMTP'),
+        (EMAIL_BACKEND_SENDGRID, 'SendGrid API'),
+        (EMAIL_BACKEND_MAILGUN, 'Mailgun API'),
+        (EMAIL_BACKEND_SES, 'AWS SES'),
+    ]
+
+    email_backend = models.CharField(
+        max_length=20,
+        choices=EMAIL_BACKEND_CHOICES,
+        default=EMAIL_BACKEND_SMTP,
+        help_text="Email service to use"
+    )
+
+    # From address
+    email_from_address = models.EmailField(
+        blank=True,
+        default='',
+        help_text="Email address to send notifications from (e.g., pki@example.com)"
+    )
+    email_from_name = models.CharField(
+        max_length=255,
+        blank=True,
+        default='Pemly PKI',
+        help_text="Display name for emails"
+    )
+
+    # SMTP Settings
+    smtp_host = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        help_text="SMTP server hostname"
+    )
+    smtp_port = models.PositiveIntegerField(
+        default=587,
+        help_text="SMTP server port (usually 587 for TLS, 465 for SSL)"
+    )
+    smtp_username = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        help_text="SMTP authentication username"
+    )
+    smtp_password_encrypted = models.TextField(
+        blank=True,
+        default='',
+        help_text="Encrypted SMTP password"
+    )
+    smtp_use_tls = models.BooleanField(
+        default=True,
+        help_text="Use TLS encryption"
+    )
+    smtp_use_ssl = models.BooleanField(
+        default=False,
+        help_text="Use SSL encryption"
+    )
+
+    # SendGrid Settings
+    sendgrid_api_key_encrypted = models.TextField(
+        blank=True,
+        default='',
+        help_text="Encrypted SendGrid API key"
+    )
+
+    # Mailgun Settings
+    mailgun_api_key_encrypted = models.TextField(
+        blank=True,
+        default='',
+        help_text="Encrypted Mailgun API key"
+    )
+    mailgun_domain = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        help_text="Mailgun domain (e.g., mg.example.com)"
+    )
+    mailgun_region = models.CharField(
+        max_length=10,
+        choices=[('us', 'US'), ('eu', 'EU')],
+        default='us',
+        help_text="Mailgun region"
+    )
+
+    # AWS SES Settings
+    ses_access_key_id_encrypted = models.TextField(
+        blank=True,
+        default='',
+        help_text="Encrypted AWS access key ID"
+    )
+    ses_secret_access_key_encrypted = models.TextField(
+        blank=True,
+        default='',
+        help_text="Encrypted AWS secret access key"
+    )
+    ses_region = models.CharField(
+        max_length=50,
+        blank=True,
+        default='us-east-1',
+        help_text="AWS region (e.g., us-east-1)"
+    )
+
+    # Notification Settings
+    notify_on_request_submitted = models.BooleanField(
+        default=True,
+        help_text="Notify managers when new certificate request is submitted"
+    )
+    notify_on_request_approved = models.BooleanField(
+        default=True,
+        help_text="Notify requester when their request is approved"
+    )
+    notify_on_request_rejected = models.BooleanField(
+        default=True,
+        help_text="Notify requester when their request is rejected"
+    )
+    notify_on_certificate_revoked = models.BooleanField(
+        default=True,
+        help_text="Notify certificate owner when their certificate is revoked"
+    )
+    notify_expiration_warnings = models.BooleanField(
+        default=True,
+        help_text="Send certificate expiration warnings"
+    )
+    expiration_warning_days = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Days before expiration to send warnings (e.g., [30, 14, 7])"
+    )
+
     # Metadata
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -844,6 +984,103 @@ class AppSettings(models.Model):
         """Ensure only one instance exists."""
         self.pk = 1
         super().save(*args, **kwargs)
+
+    # Email credential encryption/decryption methods
+
+    def set_smtp_password(self, plaintext: str) -> None:
+        """Encrypt and store SMTP password."""
+        if not settings.ENCRYPTION_KEY:
+            raise ValueError("ENCRYPTION_KEY not configured")
+        if not plaintext:
+            self.smtp_password_encrypted = ''
+            return
+        f = Fernet(settings.ENCRYPTION_KEY.encode())
+        self.smtp_password_encrypted = f.encrypt(plaintext.encode()).decode()
+
+    def get_smtp_password(self) -> str:
+        """Decrypt and return SMTP password."""
+        if not self.smtp_password_encrypted:
+            return ""
+        if not settings.ENCRYPTION_KEY:
+            raise ValueError("ENCRYPTION_KEY not configured")
+        f = Fernet(settings.ENCRYPTION_KEY.encode())
+        return f.decrypt(self.smtp_password_encrypted.encode()).decode()
+
+    def set_sendgrid_api_key(self, plaintext: str) -> None:
+        """Encrypt and store SendGrid API key."""
+        if not settings.ENCRYPTION_KEY:
+            raise ValueError("ENCRYPTION_KEY not configured")
+        if not plaintext:
+            self.sendgrid_api_key_encrypted = ''
+            return
+        f = Fernet(settings.ENCRYPTION_KEY.encode())
+        self.sendgrid_api_key_encrypted = f.encrypt(plaintext.encode()).decode()
+
+    def get_sendgrid_api_key(self) -> str:
+        """Decrypt and return SendGrid API key."""
+        if not self.sendgrid_api_key_encrypted:
+            return ""
+        if not settings.ENCRYPTION_KEY:
+            raise ValueError("ENCRYPTION_KEY not configured")
+        f = Fernet(settings.ENCRYPTION_KEY.encode())
+        return f.decrypt(self.sendgrid_api_key_encrypted.encode()).decode()
+
+    def set_mailgun_api_key(self, plaintext: str) -> None:
+        """Encrypt and store Mailgun API key."""
+        if not settings.ENCRYPTION_KEY:
+            raise ValueError("ENCRYPTION_KEY not configured")
+        if not plaintext:
+            self.mailgun_api_key_encrypted = ''
+            return
+        f = Fernet(settings.ENCRYPTION_KEY.encode())
+        self.mailgun_api_key_encrypted = f.encrypt(plaintext.encode()).decode()
+
+    def get_mailgun_api_key(self) -> str:
+        """Decrypt and return Mailgun API key."""
+        if not self.mailgun_api_key_encrypted:
+            return ""
+        if not settings.ENCRYPTION_KEY:
+            raise ValueError("ENCRYPTION_KEY not configured")
+        f = Fernet(settings.ENCRYPTION_KEY.encode())
+        return f.decrypt(self.mailgun_api_key_encrypted.encode()).decode()
+
+    def set_ses_access_key_id(self, plaintext: str) -> None:
+        """Encrypt and store AWS SES access key ID."""
+        if not settings.ENCRYPTION_KEY:
+            raise ValueError("ENCRYPTION_KEY not configured")
+        if not plaintext:
+            self.ses_access_key_id_encrypted = ''
+            return
+        f = Fernet(settings.ENCRYPTION_KEY.encode())
+        self.ses_access_key_id_encrypted = f.encrypt(plaintext.encode()).decode()
+
+    def get_ses_access_key_id(self) -> str:
+        """Decrypt and return AWS SES access key ID."""
+        if not self.ses_access_key_id_encrypted:
+            return ""
+        if not settings.ENCRYPTION_KEY:
+            raise ValueError("ENCRYPTION_KEY not configured")
+        f = Fernet(settings.ENCRYPTION_KEY.encode())
+        return f.decrypt(self.ses_access_key_id_encrypted.encode()).decode()
+
+    def set_ses_secret_access_key(self, plaintext: str) -> None:
+        """Encrypt and store AWS SES secret access key."""
+        if not settings.ENCRYPTION_KEY:
+            raise ValueError("ENCRYPTION_KEY not configured")
+        if not plaintext:
+            self.ses_secret_access_key_encrypted = ''
+            return
+        f = Fernet(settings.ENCRYPTION_KEY.encode())
+        self.ses_secret_access_key_encrypted = f.encrypt(plaintext.encode()).decode()
+
+    def get_ses_secret_access_key(self) -> str:
+        """Decrypt and return AWS SES secret access key."""
+        if not self.ses_secret_access_key_encrypted:
+            return ""
+        if not settings.ENCRYPTION_KEY:
+            raise ValueError("ENCRYPTION_KEY not configured")
+        f = Fernet(settings.ENCRYPTION_KEY.encode())
+        return f.decrypt(self.ses_secret_access_key_encrypted.encode()).decode()
 
     @classmethod
     def get(cls) -> "AppSettings":
@@ -921,3 +1158,36 @@ class CertificateProfile(models.Model):
     def get_user_profiles(cls):
         """Return queryset of user-created profiles."""
         return cls.objects.filter(is_builtin=False)
+
+
+class ExpirationWarningLog(models.Model):
+    """
+    Track which expiration warnings have been sent to avoid duplicates.
+
+    Each certificate can have multiple warnings (30-day, 14-day, 7-day).
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    certificate = models.ForeignKey(
+        Certificate,
+        on_delete=models.CASCADE,
+        related_name='expiration_warnings'
+    )
+    warning_threshold = models.IntegerField(
+        help_text="Days before expiration when this warning was sent"
+    )
+    sent_at = models.DateTimeField(auto_now_add=True)
+    sent_to = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='received_expiration_warnings'
+    )
+
+    class Meta:
+        ordering = ['-sent_at']
+        unique_together = [('certificate', 'warning_threshold')]
+        verbose_name = "Expiration Warning Log"
+        verbose_name_plural = "Expiration Warning Logs"
+
+    def __str__(self):
+        return f"{self.certificate.common_name} - {self.warning_threshold} day warning"
