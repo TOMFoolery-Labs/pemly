@@ -13,6 +13,7 @@ A Django web application that serves as a user-friendly frontend for CloudFlare'
 - **Certificate Types** - Support for Server TLS and Client Authentication certificates
 - **Subject Alternative Names** - Add DNS names, IP addresses, and email addresses to certificates
 - **Certificate Revocation** - Revoke certificates with reason codes and automatic CRL updates
+- **Certificate Renewal** - One-click certificate renewal with flexible key management options
 - **Certificate Archive** - Archive revoked certificates to keep certificate lists clean
 - **CRL Distribution** - Automatic Certificate Revocation List generation and distribution
 - **OCSP Responder** - Built-in OCSP responder for real-time certificate status checking
@@ -358,6 +359,36 @@ Access Django admin at http://localhost:8000/admin/ for troubleshooting and low-
 4. Confirm revocation
 
 The CRL is automatically refreshed to include the newly revoked certificate.
+
+### Renewing Certificates
+
+Pemly provides one-click certificate renewal to simplify certificate lifecycle management.
+
+1. Navigate to the certificate detail page (active or revoked)
+2. Click "Renew"
+3. Review the pre-filled certificate details (editable)
+4. Choose key management option:
+   - **Generate new key pair** (Recommended) - Creates a new private/public key pair
+   - **Reuse existing key** - Uses the same private key from the original certificate
+5. Choose revocation option:
+   - **Revoke old certificate** (Recommended, default) - Automatically revokes the old certificate with reason "Superseded"
+   - **Keep old certificate active** - Maintains both certificates (for blue/green deployments)
+6. Click "Renew Certificate"
+
+**Renewal Features:**
+- **Flexible timing** - Renew anytime, not just before expiration
+- **Early renewal warning** - Alerts if renewing more than 30 days before expiry
+- **Fresh validity period** - New certificate validity starts from issuance date, not from old certificate's expiration
+- **Renewal chain tracking** - Full audit trail linking renewed certificates to originals
+- **Works with revoked certificates** - Re-issue certificates that were revoked
+- **Auto-revoke old certificate** - Optionally revoke the old certificate for security (default: enabled)
+- **Pre-filled form** - All certificate details auto-populated from original
+
+**Best Practices:**
+- Generate new key pairs for renewals unless you have specific compatibility requirements
+- Enable auto-revoke to prevent old certificates from being used after renewal
+- Plan renewals 30-60 days before expiration to allow time for deployment
+- Use renewal for certificate updates (changing SANs, validity period, etc.)
 
 ### Archiving Certificates
 
@@ -710,6 +741,7 @@ See `PROJECT_PLAN.md` for the full implementation plan.
 - Air-gap support (export/remove/restore private keys)
 - Certificate profiles/templates
 - Certificate revocation with CRL generation and distribution
+- Certificate renewal with flexible key management
 - Certificate archive functionality for revoked certificates
 - OCSP (Online Certificate Status Protocol) responder
 - Backup and restore functionality
@@ -720,8 +752,8 @@ See `PROJECT_PLAN.md` for the full implementation plan.
 
 **Planned:**
 - REST API for automation
-- Certificate renewal functionality
 - Automated certificate lifecycle management
+- Certificate auto-renewal with policy-based triggers
 
 ## License
 
