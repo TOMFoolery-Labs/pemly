@@ -1,4 +1,5 @@
 from django import forms
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
@@ -162,6 +163,7 @@ class SettingsView(LoginRequiredMixin, View):
             'form': form,
             'settings': settings_obj,
             'cfssl_status': cfssl_status,
+            'version': settings.VERSION,
         })
 
     def post(self, request):
@@ -188,6 +190,7 @@ class SettingsView(LoginRequiredMixin, View):
             'form': form,
             'settings': settings_obj,
             'cfssl_status': cfssl_status,
+            'version': settings.VERSION,
         })
 
     def _get_cfssl_status(self) -> dict:
