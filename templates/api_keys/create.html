@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Create API Key{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="mb-6">
+        <h1 class="text-2xl font-bold text-slate-900">Create API Key</h1>
+        <p class="mt-1 text-sm text-slate-600">Generate a new API key for programmatic access</p>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <form method="post" class="space-y-6">
+                {% csrf_token %}
+
+                <div>
+                    <label for="name" class="block text-sm font-medium text-slate-700 mb-1">
+                        API Key Name <span class="text-red-500">*</span>
+                    </label>
+                    <input
+                        type="text"
+                        name="name"
+                        id="name"
+                        required
+                        class="input"
+                        placeholder="e.g., Production Server, CI/CD Pipeline"
+                        autofocus
+                    >
+                    <p class="mt-1 text-xs text-slate-500">
+                        Choose a descriptive name to help you identify this key later
+                    </p>
+                </div>
+
+                <div class="border-t border-slate-200 pt-6">
+                    <div class="flex items-center justify-between">
+                        <a href="{% url 'core:api_key_list' %}" class="btn-secondary">
+                            Cancel
+                        </a>
+                        <button type="submit" class="btn-primary">
+                            Generate API Key
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="mt-6 card border-yellow-200">
+        <div class="card-header bg-yellow-50">
+            <h3 class="text-sm font-medium text-yellow-900">Security Notice</h3>
+        </div>
+        <div class="card-body text-sm text-slate-600 space-y-2">
+            <ul class="list-disc list-inside space-y-1 ml-2">
+                <li>Your API key will be shown only once after creation</li>
+                <li>Store it securely - it cannot be recovered if lost</li>
+                <li>Treat API keys like passwords - never commit them to version control</li>
+                <li>API keys have the same permissions as your user account</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
