@@ -5,13 +5,17 @@ A Django web application that serves as a user-friendly frontend for CloudFlare'
 ## Features
 
 - **Role-Based Access Control (RBAC)** - 5 user roles with granular permissions and approval workflows
-- **Certificate Authority Management** - Create and manage root and intermediate CAs
+- **Hierarchical CA Structure** - Create root CAs and intermediate CAs with path length constraints
+- **Certificate Authority Management** - Create and manage root and intermediate CAs with air-gap support
 - **Certificate Issuance** - Issue certificates with server-side key generation or sign existing CSRs
 - **Certificate Approval Workflow** - Certificate Requesters submit CSRs for Manager approval
 - **Email Notifications** - Configurable notifications for certificate events and expiration warnings
-- **Certificate Types** - Support for Server TLS, Client Authentication, Code Signing, and Email (S/MIME)
+- **Certificate Types** - Support for Server TLS and Client Authentication certificates
 - **Subject Alternative Names** - Add DNS names, IP addresses, and email addresses to certificates
-- **Certificate Revocation** - Revoke certificates with CRL generation
+- **Certificate Revocation** - Revoke certificates with reason codes and automatic CRL updates
+- **Certificate Archive** - Archive revoked certificates to keep certificate lists clean
+- **CRL Distribution** - Automatic Certificate Revocation List generation and distribution
+- **OCSP Responder** - Built-in OCSP responder for real-time certificate status checking
 - **Certificate Profiles** - Reusable templates for certificate issuance
 - **Air-Gap Support** - Export/remove/restore CA private keys for offline storage
 - **Backup & Restore** - Full database and certificate backup/restore functionality
@@ -353,6 +357,118 @@ Access Django admin at http://localhost:8000/admin/ for troubleshooting and low-
 3. Select a revocation reason
 4. Confirm revocation
 
+The CRL is automatically refreshed to include the newly revoked certificate.
+
+### Archiving Certificates
+
+Once a certificate is revoked, you can archive it to keep your certificate lists clean while preserving all data for audit and CRL purposes.
+
+1. Navigate to a revoked certificate's detail page
+2. Click "Archive"
+3. Confirm the archive action
+
+**Archive behavior:**
+- Only revoked certificates can be archived
+- Archived certificates are hidden from the main certificate list by default
+- Add `?show_archived=true` to the URL to view archived certificates
+- Archived certificates remain in CRLs and are included in backups
+- Certificates can be unarchived at any time
+- All archive/unarchive actions are logged to the audit trail
+
+### Hierarchical Certificate Authority
+
+Pemly supports multi-tier CA hierarchies for enterprise PKI deployments.
+
+**Creating an Intermediate CA:**
+
+1. Navigate to your root CA's detail page
+2. Click "Create Intermediate CA"
+3. Choose creation method:
+   - **Generate New Intermediate** - Pemly creates the private key and signs the certificate
+   - **Generate CSR Only** - For external signing (air-gapped root CA scenario)
+4. Fill in intermediate CA details
+5. Set path length constraint (0 = can only sign end-entity certificates)
+6. Click "Create Intermediate CA"
+
+**CA Hierarchy Features:**
+- Root CAs can sign intermediate CAs
+- Intermediate CAs can sign end-entity certificates
+- Path length constraints enforce hierarchy depth
+- Full certificate chain provided for all issued certificates
+- Each CA level maintains its own CRL
+
+**Air-Gapped Intermediate Creation:**
+
+For maximum security, you can create an intermediate CA CSR and have it signed by an offline root CA:
+
+1. Generate CSR for intermediate CA in Pemly
+2. Download the CSR file
+3. Sign the CSR with your air-gapped root CA
+4. Import the signed certificate back into Pemly
+5. The intermediate CA is now active and can issue certificates
+
+### Certificate Revocation Lists (CRL)
+
+Pemly automatically generates and caches CRLs for each Certificate Authority.
+
+**CRL Features:**
+- Automatic generation when certificates are revoked
+- 24-hour validity period with 6-hour cache
+- DER and PEM formats available
+- RFC 5280 compliant
+
+**Accessing CRLs:**
+
+Each CA has a dedicated CRL endpoint:
+```
+https://your-pemly-instance/ca/<ca-id>/crl/
+```
+
+Add this URL to the CRL Distribution Point (CDP) extension when issuing certificates.
+
+**Manual CRL Refresh:**
+
+CRLs are cached for performance. To force a refresh:
+1. Navigate to the CA detail page
+2. Click "Refresh CRL"
+
+### OCSP Responder
+
+Pemly includes a built-in OCSP (Online Certificate Status Protocol) responder for real-time certificate status checking.
+
+**Configuring OCSP:**
+
+1. Navigate to a CA's detail page
+2. Click "Configure OCSP"
+3. Click "Generate OCSP Certificate"
+4. Set the OCSP responder URL (e.g., `https://your-pemly-instance/ocsp/<ca-id>/`)
+5. Save settings
+
+**OCSP Features:**
+- RFC 6960 compliant OCSP responder
+- Delegated OCSP signing certificate
+- Support for both GET and POST requests
+- Real-time revocation status checking
+- No authentication required (public endpoint)
+
+**OCSP Endpoint:**
+```
+https://your-pemly-instance/ocsp/<ca-id>/
+```
+
+Include this URL in the Authority Information Access (AIA) extension when issuing certificates.
+
+**Testing OCSP:**
+
+```bash
+# Check certificate status via OCSP
+openssl ocsp \
+  -issuer ca.crt \
+  -cert certificate.crt \
+  -url https://your-pemly-instance/ocsp/<ca-id>/ \
+  -text
+```
+
 ## Email Notifications
 
 Pemly includes a comprehensive email notification system to keep users informed about certificate lifecycle events and expiration warnings.
@@ -593,7 +709,9 @@ See `PROJECT_PLAN.md` for the full implementation plan.
 - Certificate Authority hierarchy (Root + Intermediate CAs)
 - Air-gap support (export/remove/restore private keys)
 - Certificate profiles/templates
-- Certificate revocation with CRL generation
+- Certificate revocation with CRL generation and distribution
+- Certificate archive functionality for revoked certificates
+- OCSP (Online Certificate Status Protocol) responder
 - Backup and restore functionality
 - Docker deployment
 - Role-based access control (RBAC) with 5 user roles
@@ -602,6 +720,8 @@ See `PROJECT_PLAN.md` for the full implementation plan.
 
 **Planned:**
 - REST API for automation
+- Certificate renewal functionality
+- Automated certificate lifecycle management
 
 ## License
 
