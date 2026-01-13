@@ -277,6 +277,54 @@
       </div>
     </div>
 
+    <!-- Certificate Bundles -->
+    {% if certificate.has_private_key %}
+    <div class="card border-blue-200">
+      <div class="card-header bg-blue-50">
+        <h2 class="text-lg font-medium text-blue-900">Deployment Bundles</h2>
+      </div>
+      <div class="card-body space-y-2">
+        <p class="text-xs text-slate-600 mb-3">
+          Pre-configured bundles for common web servers and applications.
+        </p>
+        <a href="{% url 'core:certificate_download' pk=certificate.pk file_type='bundle-nginx' %}" class="btn-secondary btn-sm w-full justify-center">
+          <svg class="h-4 w-4 mr-2 -ml-1" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Nginx Bundle
+        </a>
+        <a href="{% url 'core:certificate_download' pk=certificate.pk file_type='bundle-apache' %}" class="btn-secondary btn-sm w-full justify-center">
+          <svg class="h-4 w-4 mr-2 -ml-1" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Apache Bundle
+        </a>
+        <a href="{% url 'core:certificate_download' pk=certificate.pk file_type='bundle-pem' %}" class="btn-secondary btn-sm w-full justify-center">
+          <svg class="h-4 w-4 mr-2 -ml-1" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          HAProxy/All-in-One
+        </a>
+        <a href="{% url 'core:certificate_download' pk=certificate.pk file_type='bundle-pkcs12' %}" class="btn-secondary btn-sm w-full justify-center">
+          <svg class="h-4 w-4 mr-2 -ml-1" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          PKCS#12 (.p12)
+        </a>
+        <details class="mt-3">
+          <summary class="text-xs text-slate-600 cursor-pointer hover:text-slate-800">
+            What's included?
+          </summary>
+          <div class="mt-2 text-xs text-slate-600 space-y-2">
+            <p><strong>Nginx/Apache:</strong> Certificate + intermediate chain (for ssl_certificate)</p>
+            <p><strong>HAProxy:</strong> Private key + certificate + chain in one file</p>
+            <p><strong>PKCS#12:</strong> Binary format for Windows IIS, Java keystores, browsers</p>
+          </div>
+        </details>
+      </div>
+    </div>
+    {% endif %}
+
     <!-- Certificate Info -->
     <div class="card">
       <div class="card-header">

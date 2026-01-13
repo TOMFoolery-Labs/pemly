@@ -351,6 +351,17 @@ Access Django admin at http://localhost:8000/admin/ for troubleshooting and low-
 4. Click "Issue Certificate"
 5. Download the certificate files
 
+### Deployment Bundles
+
+PEMLY automatically generates deployment-ready certificate bundles for common web servers and applications:
+
+- **Nginx Bundle** - Certificate + intermediate chain (ready for `ssl_certificate` directive)
+- **Apache Bundle** - Certificate + intermediate chain (ready for `SSLCertificateFile` directive)
+- **HAProxy/All-in-One** - Private key + certificate + chain in a single PEM file
+- **PKCS#12 (.p12)** - Binary format for Windows IIS, Java keystores, and browsers
+
+These bundles include the complete certificate chain (excluding root CA) and are ready to deploy without additional configuration.
+
 ### Certificate Types
 
 PEMLY supports five types of certificates, each optimized for specific use cases:

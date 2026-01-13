@@ -775,6 +775,107 @@ class CertificateDownloadView(LoginRequiredMixin, View):
             content = certificate.ca.get_chain_pem()
             filename = "ca-chain.crt"
             content_type = 'application/x-pem-file'
+        elif file_type == 'bundle-nginx':
+            # Nginx format: cert + intermediates (no root)
+            # Nginx expects: cert first, then intermediate chain
+            if not certificate.has_private_key:
+                messages.error(request, "Bundle requires private key. Use CSR-based download instead.")
+                return redirect('core:certificate_detail', pk=pk)
+
+            # Get cert + intermediate chain (without root)
+            chain_parts = [certificate.certificate_pem]
+            ca = certificate.ca
+            while ca.parent_ca:
+                chain_parts.append(ca.certificate_pem)
+                ca = ca.parent_ca
+
+            content = '\n'.join(chain_parts)
+            filename = f"{filename_base}-nginx-bundle.crt"
+            content_type = 'application/x-pem-file'
+        elif file_type == 'bundle-apache':
+            # Apache format: separate cert and chain files bundled together
+            if not certificate.has_private_key:
+                messages.error(request, "Bundle requires private key. Use CSR-based download instead.")
+                return redirect('core:certificate_detail', pk=pk)
+
+            # Apache format is same as nginx (cert + intermediates)
+            chain_parts = [certificate.certificate_pem]
+            ca = certificate.ca
+            while ca.parent_ca:
+                chain_parts.append(ca.certificate_pem)
+                ca = ca.parent_ca
+
+            content = '\n'.join(chain_parts)
+            filename = f"{filename_base}-apache-bundle.crt"
+            content_type = 'application/x-pem-file'
+        elif file_type == 'bundle-pem':
+            # Combined PEM bundle: key + cert + chain (all-in-one file)
+            # Useful for HAProxy, some load balancers
+            if not certificate.has_private_key:
+                messages.error(request, "Bundle requires private key. Use CSR-based download instead.")
+                return redirect('core:certificate_detail', pk=pk)
+
+            parts = [
+                certificate.get_private_key(),
+                certificate.certificate_pem,
+            ]
+
+            # Add intermediate chain
+            ca = certificate.ca
+            while ca.parent_ca:
+                parts.append(ca.certificate_pem)
+                ca = ca.parent_ca
+
+            content = '\n'.join(parts)
+            filename = f"{filename_base}-bundle.pem"
+            content_type = 'application/x-pem-file'
+        elif file_type == 'bundle-pkcs12':
+            # PKCS#12 bundle (binary format for Windows, Java, etc.)
+            if not certificate.has_private_key:
+                messages.error(request, "PKCS#12 bundle requires private key.")
+                return redirect('core:certificate_detail', pk=pk)
+
+            from cryptography.hazmat.backends import default_backend
+            from cryptography.hazmat.primitives import serialization
+            from cryptography import x509
+
+            # Load certificate
+            cert_obj = x509.load_pem_x509_certificate(
+                certificate.certificate_pem.encode(),
+                default_backend()
+            )
+
+            # Load private key
+            private_key_pem = certificate.get_private_key()
+            private_key = serialization.load_pem_private_key(
+                private_key_pem.encode(),
+                password=None,
+                backend=default_backend()
+            )
+
+            # Load CA chain
+            ca_certs = []
+            ca = certificate.ca
+            while ca:
+                ca_cert = x509.load_pem_x509_certificate(
+                    ca.certificate_pem.encode(),
+                    default_backend()
+                )
+                ca_certs.append(ca_cert)
+                ca = ca.parent_ca if hasattr(ca, 'parent_ca') else None
+
+            # Create PKCS#12 bundle (no password for simplicity)
+            p12 = serialization.pkcs12.serialize_key_and_certificates(
+                name=certificate.common_name.encode(),
+                key=private_key,
+                cert=cert_obj,
+                cas=ca_certs if ca_certs else None,
+                encryption_algorithm=serialization.NoEncryption()
+            )
+
+            content = p12
+            filename = f"{filename_base}.p12"
+            content_type = 'application/x-pkcs12'
         else:
             messages.error(request, "Invalid file type.")
             return redirect('core:certificate_detail', pk=pk)
