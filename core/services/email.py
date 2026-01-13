@@ -51,9 +51,9 @@ class EmailService:
 
     def send_test_email(self, to_email: str) -> bool:
         """Send a test email to verify configuration."""
-        subject = "Pemly PKI - Test Email"
+        subject = "PEMLY PKI - Test Email"
         html_content = render_to_string('emails/test_email.html', {
-            'app_name': 'Pemly PKI'
+            'app_name': 'PEMLY PKI'
         })
         plain_content = strip_tags(html_content)
 
@@ -303,7 +303,7 @@ def send_notification(
         plain_content = strip_tags(html_content)
 
         # Get subject from context or use default
-        subject = context.get('subject', f'Pemly PKI Notification: {notification_type}')
+        subject = context.get('subject', f'PEMLY PKI Notification: {notification_type}')
 
         return email_service.send_email(
             to_email=to_user.email,

@@ -930,7 +930,7 @@ class AppSettings(models.Model):
     email_from_name = models.CharField(
         max_length=255,
         blank=True,
-        default='Pemly PKI',
+        default='PEMLY PKI',
         help_text="Display name for emails"
     )
 

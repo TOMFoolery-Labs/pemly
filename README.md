@@ -1,4 +1,4 @@
-# Pemly - Certificate Manager
+# PEMLY - Certificate Manager
 
 A Django web application that serves as a user-friendly frontend for CloudFlare's CFSSL PKI toolkit. Build and manage your own Certificate Authority with a clean, modern interface.
 
@@ -90,7 +90,7 @@ Deploy on a Linux server with a single command:
 curl -fsSL https://raw.githubusercontent.com/TOMFoolery-Labs/pemly/main/deploy/systemd/install.sh | sudo bash
 ```
 
-This downloads the latest release (pre-built, no npm/node required) and installs Pemly with systemd, nginx, PostgreSQL, and optional Let's Encrypt SSL. See [deploy/systemd/INSTALL.md](deploy/systemd/INSTALL.md) for options and manual installation.
+This downloads the latest release (pre-built, no npm/node required) and installs PEMLY with systemd, nginx, PostgreSQL, and optional Let's Encrypt SSL. See [deploy/systemd/INSTALL.md](deploy/systemd/INSTALL.md) for options and manual installation.
 
 ## Local Development
 
@@ -345,7 +345,7 @@ Access Django admin at http://localhost:8000/admin/ for troubleshooting and low-
 
 1. Navigate to Certificates > Issue Certificate
 2. Choose generation method:
-   - **Generate key pair on server** - Pemly generates the private key
+   - **Generate key pair on server** - PEMLY generates the private key
    - **Sign existing CSR** - Paste a CSR from elsewhere
 3. Fill in certificate details (common name, SANs, validity)
 4. Click "Issue Certificate"
@@ -353,7 +353,7 @@ Access Django admin at http://localhost:8000/admin/ for troubleshooting and low-
 
 ### Certificate Types
 
-Pemly supports five types of certificates, each optimized for specific use cases:
+PEMLY supports five types of certificates, each optimized for specific use cases:
 
 #### Server TLS
 For securing web servers and internal HTTPS services.
@@ -470,7 +470,7 @@ The CRL is automatically refreshed to include the newly revoked certificate.
 
 ### Renewing Certificates
 
-Pemly provides one-click certificate renewal to simplify certificate lifecycle management.
+PEMLY provides one-click certificate renewal to simplify certificate lifecycle management.
 
 1. Navigate to the certificate detail page (active or revoked)
 2. Click "Renew"
@@ -516,14 +516,14 @@ Once a certificate is revoked, you can archive it to keep your certificate lists
 
 ### Hierarchical Certificate Authority
 
-Pemly supports multi-tier CA hierarchies for enterprise PKI deployments.
+PEMLY supports multi-tier CA hierarchies for enterprise PKI deployments.
 
 **Creating an Intermediate CA:**
 
 1. Navigate to your root CA's detail page
 2. Click "Create Intermediate CA"
 3. Choose creation method:
-   - **Generate New Intermediate** - Pemly creates the private key and signs the certificate
+   - **Generate New Intermediate** - PEMLY creates the private key and signs the certificate
    - **Generate CSR Only** - For external signing (air-gapped root CA scenario)
 4. Fill in intermediate CA details
 5. Set path length constraint (0 = can only sign end-entity certificates)
@@ -540,15 +540,15 @@ Pemly supports multi-tier CA hierarchies for enterprise PKI deployments.
 
 For maximum security, you can create an intermediate CA CSR and have it signed by an offline root CA:
 
-1. Generate CSR for intermediate CA in Pemly
+1. Generate CSR for intermediate CA in PEMLY
 2. Download the CSR file
 3. Sign the CSR with your air-gapped root CA
-4. Import the signed certificate back into Pemly
+4. Import the signed certificate back into PEMLY
 5. The intermediate CA is now active and can issue certificates
 
 ### Certificate Revocation Lists (CRL)
 
-Pemly automatically generates and caches CRLs for each Certificate Authority.
+PEMLY automatically generates and caches CRLs for each Certificate Authority.
 
 **CRL Features:**
 - Automatic generation when certificates are revoked
@@ -573,7 +573,7 @@ CRLs are cached for performance. To force a refresh:
 
 ### OCSP Responder
 
-Pemly includes a built-in OCSP (Online Certificate Status Protocol) responder for real-time certificate status checking.
+PEMLY includes a built-in OCSP (Online Certificate Status Protocol) responder for real-time certificate status checking.
 
 **Configuring OCSP:**
 
@@ -610,7 +610,7 @@ openssl ocsp \
 
 ## Email Notifications
 
-Pemly includes a comprehensive email notification system to keep users informed about certificate lifecycle events and expiration warnings.
+PEMLY includes a comprehensive email notification system to keep users informed about certificate lifecycle events and expiration warnings.
 
 ### Supported Email Backends
 
@@ -693,7 +693,7 @@ Create `/etc/systemd/system/pemly-expiration-warnings.service`:
 
 ```ini
 [Unit]
-Description=Pemly PKI Certificate Expiration Warnings
+Description=PEMLY PKI Certificate Expiration Warnings
 After=network.target
 
 [Service]
@@ -709,7 +709,7 @@ Create `/etc/systemd/system/pemly-expiration-warnings.timer`:
 
 ```ini
 [Unit]
-Description=Daily Pemly PKI expiration warnings
+Description=Daily PEMLY PKI expiration warnings
 Requires=pemly-expiration-warnings.service
 
 [Timer]
@@ -772,7 +772,7 @@ Use SSL: ☐ Unchecked
 
 ## Role-Based Access Control (RBAC)
 
-Pemly implements a comprehensive RBAC system with 5 distinct roles:
+PEMLY implements a comprehensive RBAC system with 5 distinct roles:
 
 ### User Roles
 
@@ -831,7 +831,7 @@ Super Admins can manage users via the Users menu:
 
 ## API Architecture
 
-Pemly communicates with CFSSL via its REST API:
+PEMLY communicates with CFSSL via its REST API:
 
 | Operation | CFSSL Endpoint |
 |-----------|----------------|
