@@ -49,6 +49,7 @@ from .api_keys import (
     APIKeyCreateView,
     APIKeyDeleteView,
 )
+from .trust import TrustPortalView, TrustPortalDownloadView
 
 __all__ = [
     'DashboardView',
@@ -97,4 +98,6 @@ __all__ = [
     'APIKeyListView',
     'APIKeyCreateView',
     'APIKeyDeleteView',
+    'TrustPortalView',
+    'TrustPortalDownloadView',
 ]

@@ -1,0 +1,261 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Trust {{ ca.name }}{% endblock %}
+
+{% block auth_content %}
+<div class="w-full max-w-2xl mx-auto px-4 py-8">
+  <!-- Header -->
+  <div class="text-center mb-8">
+    <div class="inline-flex items-center justify-center w-16 h-16 bg-primary-100 rounded-full mb-4">
+      <svg class="w-8 h-8 text-primary-600" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+      </svg>
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-bold text-slate-900 mb-2">{{ ca.name }}</h1>
+    <p class="text-slate-600">{{ ca.organization }}</p>
+    {% if ca.is_root %}
+    <span class="inline-flex items-center mt-2 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+      Root Certificate Authority
+    </span>
+    {% else %}
+    <span class="inline-flex items-center mt-2 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800">
+      Intermediate Certificate Authority
+    </span>
+    {% endif %}
+  </div>
+
+  <!-- Certificate Info Card -->
+  <div class="bg-white rounded-xl shadow-sm border border-slate-200 mb-6">
+    <div class="px-4 sm:px-6 py-4 border-b border-slate-200">
+      <h2 class="text-lg font-semibold text-slate-900">Certificate Details</h2>
+    </div>
+    <div class="px-4 sm:px-6 py-4">
+      <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <dt class="text-sm font-medium text-slate-500">Common Name</dt>
+          <dd class="mt-1 text-sm text-slate-900 break-all">{{ ca.common_name }}</dd>
+        </div>
+        <div>
+          <dt class="text-sm font-medium text-slate-500">Organization</dt>
+          <dd class="mt-1 text-sm text-slate-900">{{ ca.organization }}</dd>
+        </div>
+        <div>
+          <dt class="text-sm font-medium text-slate-500">Valid From</dt>
+          <dd class="mt-1 text-sm text-slate-900">{{ ca.not_before|date:"M d, Y" }}</dd>
+        </div>
+        <div>
+          <dt class="text-sm font-medium text-slate-500">Valid Until</dt>
+          <dd class="mt-1 text-sm text-slate-900">{{ ca.not_after|date:"M d, Y" }}</dd>
+        </div>
+      </dl>
+
+      {% if fingerprints %}
+      <div class="mt-4 pt-4 border-t border-slate-200">
+        <h3 class="text-sm font-medium text-slate-700 mb-2">Fingerprint (verify before trusting)</h3>
+        <div class="space-y-2">
+          <div>
+            <span class="text-xs font-medium text-slate-500">SHA-256:</span>
+            <p class="text-xs font-mono text-slate-700 break-all bg-slate-50 p-2 rounded mt-1">{{ fingerprints.sha256 }}</p>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Download Section -->
+  <div class="bg-white rounded-xl shadow-sm border border-slate-200 mb-6">
+    <div class="px-4 sm:px-6 py-4 border-b border-slate-200">
+      <h2 class="text-lg font-semibold text-slate-900">Download Certificate</h2>
+    </div>
+    <div class="px-4 sm:px-6 py-4 space-y-3">
+      <!-- Primary download (DER for mobile) -->
+      <a href="{% url 'core:trust_download' pk=ca.pk format='der' %}"
+         class="flex items-center justify-center w-full px-4 py-3 bg-primary-600 text-white font-medium rounded-lg hover:bg-primary-700 transition-colors">
+        <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+        </svg>
+        Download Certificate (.cer)
+      </a>
+
+      <a href="{% url 'core:trust_download' pk=ca.pk format='pem' %}"
+         class="flex items-center justify-center w-full px-4 py-3 bg-white text-slate-700 font-medium rounded-lg border border-slate-300 hover:bg-slate-50 transition-colors">
+        <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+        </svg>
+        Download Certificate (.crt/PEM)
+      </a>
+
+      {% if has_chain %}
+      <a href="{% url 'core:trust_download' pk=ca.pk format='pem' %}?chain=1"
+         class="flex items-center justify-center w-full px-4 py-3 bg-white text-slate-700 font-medium rounded-lg border border-slate-300 hover:bg-slate-50 transition-colors">
+        <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+        </svg>
+        Download Full Chain (.crt/PEM)
+      </a>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Installation Instructions (Device-specific) -->
+  <div class="bg-white rounded-xl shadow-sm border border-slate-200 mb-6" x-data="{ activeTab: '{{ device_type }}' }">
+    <div class="px-4 sm:px-6 py-4 border-b border-slate-200">
+      <h2 class="text-lg font-semibold text-slate-900">Installation Instructions</h2>
+    </div>
+
+    <!-- Tab Navigation -->
+    <div class="border-b border-slate-200 px-4 sm:px-6">
+      <nav class="flex space-x-4 -mb-px overflow-x-auto" aria-label="Device tabs">
+        <button @click="activeTab = 'ios'"
+                :class="activeTab === 'ios' ? 'border-primary-500 text-primary-600' : 'border-transparent text-slate-500 hover:text-slate-700'"
+                class="whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors">
+          iOS/iPadOS
+        </button>
+        <button @click="activeTab = 'android'"
+                :class="activeTab === 'android' ? 'border-primary-500 text-primary-600' : 'border-transparent text-slate-500 hover:text-slate-700'"
+                class="whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors">
+          Android
+        </button>
+        <button @click="activeTab = 'macos'"
+                :class="activeTab === 'macos' ? 'border-primary-500 text-primary-600' : 'border-transparent text-slate-500 hover:text-slate-700'"
+                class="whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors">
+          macOS
+        </button>
+        <button @click="activeTab = 'windows'"
+                :class="activeTab === 'windows' ? 'border-primary-500 text-primary-600' : 'border-transparent text-slate-500 hover:text-slate-700'"
+                class="whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors">
+          Windows
+        </button>
+        <button @click="activeTab = 'linux'"
+                :class="activeTab === 'linux' ? 'border-primary-500 text-primary-600' : 'border-transparent text-slate-500 hover:text-slate-700'"
+                class="whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors">
+          Linux
+        </button>
+      </nav>
+    </div>
+
+    <!-- Tab Content -->
+    <div class="px-4 sm:px-6 py-4">
+      <!-- iOS Instructions -->
+      <div x-show="activeTab === 'ios'" x-cloak>
+        <ol class="list-decimal list-inside space-y-3 text-sm text-slate-700">
+          <li>Download the <strong>.cer</strong> certificate file above</li>
+          <li>Go to <strong>Settings</strong> app</li>
+          <li>Tap <strong>Profile Downloaded</strong> (appears near top)</li>
+          <li>Tap <strong>Install</strong> in the top right, enter your passcode</li>
+          <li>Tap <strong>Install</strong> again to confirm</li>
+          <li>Go to <strong>Settings &gt; General &gt; About &gt; Certificate Trust Settings</strong></li>
+          <li>Enable full trust for <strong>{{ ca.common_name }}</strong></li>
+        </ol>
+        <div class="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+          <p class="text-sm text-amber-800">
+            <strong>Important:</strong> You must enable trust in Certificate Trust Settings for the certificate to work with Safari and other apps.
+          </p>
+        </div>
+      </div>
+
+      <!-- Android Instructions -->
+      <div x-show="activeTab === 'android'" x-cloak>
+        <ol class="list-decimal list-inside space-y-3 text-sm text-slate-700">
+          <li>Download the <strong>.cer</strong> certificate file above</li>
+          <li>Go to <strong>Settings &gt; Security</strong> (or Security &amp; Privacy)</li>
+          <li>Tap <strong>Encryption &amp; credentials</strong> (or Advanced &gt; Encryption)</li>
+          <li>Tap <strong>Install a certificate &gt; CA certificate</strong></li>
+          <li>Select the downloaded certificate file</li>
+          <li>Name the certificate (e.g., "{{ ca.name }}")</li>
+          <li>Tap <strong>OK</strong> to install</li>
+        </ol>
+        <div class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <p class="text-sm text-blue-800">
+            <strong>Note:</strong> The exact steps may vary depending on your Android version and device manufacturer. Look for "Install certificates" in your Settings search.
+          </p>
+        </div>
+      </div>
+
+      <!-- macOS Instructions -->
+      <div x-show="activeTab === 'macos'" x-cloak>
+        <ol class="list-decimal list-inside space-y-3 text-sm text-slate-700">
+          <li>Download the <strong>.cer</strong> or <strong>.crt</strong> certificate file</li>
+          <li>Double-click the downloaded file to open <strong>Keychain Access</strong></li>
+          <li>Select <strong>System</strong> keychain (for all users) or <strong>login</strong> (for current user)</li>
+          <li>Enter your password when prompted</li>
+          <li>Find the certificate, double-click it</li>
+          <li>Expand <strong>Trust</strong> section</li>
+          <li>Set "When using this certificate" to <strong>Always Trust</strong></li>
+          <li>Close the window and enter your password to confirm</li>
+        </ol>
+      </div>
+
+      <!-- Windows Instructions -->
+      <div x-show="activeTab === 'windows'" x-cloak>
+        <ol class="list-decimal list-inside space-y-3 text-sm text-slate-700">
+          <li>Download the <strong>.cer</strong> certificate file</li>
+          <li>Double-click the downloaded file</li>
+          <li>Click <strong>Install Certificate...</strong></li>
+          <li>Select <strong>Local Machine</strong> and click Next</li>
+          <li>Select <strong>Place all certificates in the following store</strong></li>
+          <li>Click <strong>Browse</strong> and select <strong>Trusted Root Certification Authorities</strong></li>
+          <li>Click <strong>Next</strong>, then <strong>Finish</strong></li>
+          <li>Click <strong>Yes</strong> when prompted about security</li>
+        </ol>
+        <div class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <p class="text-sm text-blue-800">
+            <strong>Tip:</strong> You may need Administrator privileges. Right-click the file and select "Run as administrator" if needed.
+          </p>
+        </div>
+      </div>
+
+      <!-- Linux Instructions -->
+      <div x-show="activeTab === 'linux'" x-cloak>
+        <ol class="list-decimal list-inside space-y-3 text-sm text-slate-700">
+          <li>Download the <strong>.crt</strong> (PEM) certificate file</li>
+          <li>
+            <strong>Debian/Ubuntu:</strong>
+            <pre class="mt-2 p-2 bg-slate-800 text-slate-100 rounded text-xs overflow-x-auto">sudo cp {{ ca.name|slugify }}.crt /usr/local/share/ca-certificates/
+sudo update-ca-certificates</pre>
+          </li>
+          <li>
+            <strong>RHEL/Fedora/CentOS:</strong>
+            <pre class="mt-2 p-2 bg-slate-800 text-slate-100 rounded text-xs overflow-x-auto">sudo cp {{ ca.name|slugify }}.crt /etc/pki/ca-trust/source/anchors/
+sudo update-ca-trust extract</pre>
+          </li>
+        </ol>
+        <div class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <p class="text-sm text-blue-800">
+            <strong>Note:</strong> For Firefox, you may need to import the certificate separately via Preferences &gt; Privacy &amp; Security &gt; Certificates.
+          </p>
+        </div>
+      </div>
+
+      <!-- Desktop fallback -->
+      <div x-show="activeTab === 'desktop'" x-cloak>
+        <p class="text-sm text-slate-600 mb-4">Select your operating system from the tabs above to see installation instructions.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- QR Code Section (for desktop users sharing to mobile) -->
+  {% if qr_data_url %}
+  <div class="bg-white rounded-xl shadow-sm border border-slate-200 mb-6 hidden sm:block">
+    <div class="px-4 sm:px-6 py-4 border-b border-slate-200">
+      <h2 class="text-lg font-semibold text-slate-900">Share to Mobile Device</h2>
+    </div>
+    <div class="px-4 sm:px-6 py-4 text-center">
+      <img src="{{ qr_data_url }}" alt="QR Code for this page" class="mx-auto w-48 h-48">
+      <p class="mt-3 text-sm text-slate-600">Scan with your phone to open this page on your mobile device</p>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Footer -->
+  <div class="text-center text-xs text-slate-500 mt-8">
+    <p>Powered by <a href="{% url 'accounts:login' %}" class="text-primary-600 hover:text-primary-700">PEMLY</a></p>
+  </div>
+</div>
+
+<style>
+  [x-cloak] { display: none !important; }
+</style>
+{% endblock %}

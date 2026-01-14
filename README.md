@@ -17,6 +17,7 @@ A Django web application that serves as a user-friendly frontend for CloudFlare'
 - **Certificate Archive** - Archive revoked certificates to keep certificate lists clean
 - **CRL Distribution** - Automatic Certificate Revocation List generation and distribution
 - **OCSP Responder** - Built-in OCSP responder for real-time certificate status checking
+- **Trust Portal** - Public mobile-friendly page for distributing CA certificates to devices
 - **Certificate Profiles** - Reusable templates for certificate issuance
 - **Air-Gap Support** - Export/remove/restore CA private keys for offline storage
 - **Backup & Restore** - Full database and certificate backup/restore functionality
@@ -729,6 +730,54 @@ openssl ocsp \
   -url https://your-pemly-instance/ocsp/<ca-id>/ \
   -text
 ```
+
+### Trust Portal
+
+PEMLY includes a public trust portal that makes it easy to distribute CA certificates to end-user devices like phones, tablets, and computers.
+
+**Features:**
+- Mobile-friendly responsive design
+- Device detection with platform-specific installation instructions
+- QR code generation for easy sharing from desktop to mobile
+- Certificate fingerprint display for verification
+- Multiple download formats (DER and PEM)
+
+**Accessing the Trust Portal:**
+
+Each CA has a dedicated trust portal at:
+```
+https://your-pemly-instance/trust/<ca-id>/
+```
+
+No authentication is required - the trust portal is public by design to allow easy distribution of CA certificates.
+
+**From the Web Interface:**
+
+1. Navigate to a CA's detail page
+2. Find the "Trust Portal" card in the sidebar
+3. Copy the URL to share, or click "Open Portal" to view it
+
+**Download Formats:**
+
+| Format | Extension | Best For |
+|--------|-----------|----------|
+| DER | `.cer` | iOS, Android, Windows (universal) |
+| PEM | `.crt` | Linux, macOS, servers |
+| Full Chain | `.crt` | When intermediate CAs need to be included |
+
+**Platform Installation:**
+
+The trust portal provides step-by-step instructions for each platform:
+
+- **iOS/iPadOS** - Download, install profile, enable trust in Settings
+- **Android** - Download, install via Security settings
+- **macOS** - Import to Keychain Access, set trust level
+- **Windows** - Install to Trusted Root Certification Authorities store
+- **Linux** - Copy to ca-certificates directory and update trust store
+
+**Sharing to Mobile:**
+
+When viewing the trust portal on a desktop browser, a QR code is displayed that mobile users can scan to open the same page on their device.
 
 ## Email Notifications
 

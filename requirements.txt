@@ -33,5 +33,8 @@ sendgrid>=6.10.0
 # For AWS SES:
 boto3>=1.34.0
 
+# QR Code generation for trust portal
+qrcode>=7.4.0
+
 # Development
 django-browser-reload>=1.12.0

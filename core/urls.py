@@ -85,4 +85,8 @@ urlpatterns = [
     # OCSP Responder (public, no auth required)
     path('ocsp/<uuid:ca_id>/', views.OCSPResponderView.as_view(), name='ocsp_responder'),
     path('ocsp/<uuid:ca_id>/<path:ocsp_request>', views.OCSPResponderGetView.as_view(), name='ocsp_responder_get'),
+
+    # Public Trust Portal (no auth required)
+    path('trust/<uuid:pk>/', views.TrustPortalView.as_view(), name='trust_portal'),
+    path('trust/<uuid:pk>/download/<str:format>/', views.TrustPortalDownloadView.as_view(), name='trust_download'),
 ]

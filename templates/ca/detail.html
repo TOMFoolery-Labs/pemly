@@ -192,6 +192,30 @@
       </div>
     </div>
 
+    <!-- Trust Portal -->
+    <div class="card">
+      <div class="card-header">
+        <h3 class="text-lg font-medium text-slate-900">Trust Portal</h3>
+      </div>
+      <div class="card-body">
+        <p class="text-sm text-slate-600 mb-3">Share this link to allow users to install this CA on their devices:</p>
+        <div class="flex items-center gap-2">
+          <input type="text" readonly
+                 value="{{ request.scheme }}://{{ request.get_host }}{% url 'core:trust_portal' pk=ca.pk %}"
+                 class="form-input text-xs flex-1 bg-slate-50">
+          <button onclick="navigator.clipboard.writeText(this.previousElementSibling.value); this.textContent='Copied!'; setTimeout(() => this.textContent='Copy', 2000)" class="btn-secondary btn-sm">
+            Copy
+          </button>
+        </div>
+        <a href="{% url 'core:trust_portal' pk=ca.pk %}" target="_blank" class="text-sm text-primary-600 hover:text-primary-700 mt-3 inline-flex items-center">
+          Open Portal
+          <svg class="w-4 h-4 ml-1" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+          </svg>
+        </a>
+      </div>
+    </div>
+
     <!-- Actions -->
     <div class="card">
       <div class="card-header">
