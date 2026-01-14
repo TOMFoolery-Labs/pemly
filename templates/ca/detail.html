@@ -283,6 +283,23 @@
       </div>
     </div>
     {% endif %}
+
+    <!-- Danger Zone (Super Admin only) -->
+    {% if is_super_admin %}
+    <div class="card border-red-200">
+      <div class="card-header bg-red-50">
+        <h3 class="text-lg font-medium text-red-800">Danger Zone</h3>
+      </div>
+      <div class="card-body">
+        <p class="text-sm text-slate-600 mb-3">
+          Permanently delete this CA and all its certificates.
+        </p>
+        <a href="{% url 'core:ca_delete' pk=ca.pk %}" class="btn-danger w-full justify-center">
+          Delete Certificate Authority
+        </a>
+      </div>
+    </div>
+    {% endif %}
   </div>
 </div>
 {% endblock %}

@@ -798,6 +798,7 @@ class AuditLog(models.Model):
         CA_KEY_RESTORED = 'ca_key_restored', 'CA Key Restored'
         CA_CSR_GENERATED = 'ca_csr_generated', 'CA CSR Generated'
         CA_CERT_IMPORTED = 'ca_cert_imported', 'CA Certificate Imported'
+        CA_DELETED = 'ca_deleted', 'CA Deleted'
         CERT_ISSUED = 'cert_issued', 'Certificate Issued'
         CERT_REVOKED = 'cert_revoked', 'Certificate Revoked'
         CERT_RENEWED = 'cert_renewed', 'Certificate Renewed'

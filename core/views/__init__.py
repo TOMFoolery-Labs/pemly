@@ -13,6 +13,7 @@ from .ca import (
     IntermediateCAImportView,
     OCSPConfigView,
     OCSPGenerateCertView,
+    CADeleteView,
 )
 from .certificates import (
     CertificateListView,
@@ -64,6 +65,7 @@ __all__ = [
     'IntermediateCAImportView',
     'OCSPConfigView',
     'OCSPGenerateCertView',
+    'CADeleteView',
     'CertificateListView',
     'CertificateCreateView',
     'CertificateDetailView',
