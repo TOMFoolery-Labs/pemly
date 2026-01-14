@@ -27,6 +27,9 @@ urlpatterns = [
     path('ca/<uuid:pk>/remove-key/', views.CAKeyRemoveView.as_view(), name='ca_remove_key'),
     path('ca/<uuid:pk>/restore-key/', views.CAKeyRestoreView.as_view(), name='ca_restore_key'),
 
+    # CA deletion
+    path('ca/<uuid:pk>/delete/', views.CADeleteView.as_view(), name='ca_delete'),
+
     # OCSP Configuration
     path('ca/<uuid:pk>/ocsp/', views.OCSPConfigView.as_view(), name='ca_ocsp_config'),
     path('ca/<uuid:pk>/ocsp/generate/', views.OCSPGenerateCertView.as_view(), name='ca_ocsp_generate'),

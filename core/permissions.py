@@ -322,4 +322,5 @@ def add_permission_context(request):
         'can_view_audit_log': user_can_view_audit_log(request.user),
         'can_view_all_certificates': user_can_view_all_certificates(request.user),
         'is_read_only': user_is_read_only(request.user),
+        'is_super_admin': hasattr(request.user, 'profile') and request.user.profile.role == 'super_admin',
     }

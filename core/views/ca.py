@@ -16,7 +16,7 @@ from core.models import (
     CAType,
     KeyAlgorithm,
 )
-from core.permissions import AdminOrSuperAdminRequiredMixin, NotRequesterMixin
+from core.permissions import AdminOrSuperAdminRequiredMixin, NotRequesterMixin, SuperAdminRequiredMixin
 from core.services import CFSSLClient, CFSSLError
 from core.services.cfssl import CertificateRequest
 
@@ -955,3 +955,78 @@ class OCSPGenerateCertView(LoginRequiredMixin, View):
             messages.error(request, f"Failed to generate OCSP certificate: {e}")
 
         return redirect('core:ca_ocsp_config', pk=pk)
+
+
+class CADeleteView(SuperAdminRequiredMixin, View):
+    """Permanently delete a Certificate Authority and all its certificates."""
+
+    template_name = 'ca/delete.html'
+
+    def get(self, request, pk):
+        ca = get_object_or_404(CertificateAuthority, pk=pk)
+
+        # Get counts for display
+        child_cas = ca.children.all()
+        certificates_count = ca.certificates.count()
+        pending_requests_count = ca.pending_requests.count()
+
+        context = {
+            'ca': ca,
+            'child_cas': child_cas,
+            'certificates_count': certificates_count,
+            'pending_requests_count': pending_requests_count,
+            'can_delete': not child_cas.exists(),
+        }
+        return render(request, self.template_name, context)
+
+    def post(self, request, pk):
+        ca = get_object_or_404(CertificateAuthority, pk=pk)
+
+        # Cannot delete if has child CAs
+        if ca.children.exists():
+            messages.error(
+                request,
+                "Cannot delete this CA because it has child CAs. Delete child CAs first."
+            )
+            return redirect('core:ca_delete', pk=pk)
+
+        # Confirmation check - user must type CA name
+        confirmation = request.POST.get('confirm', '')
+        if confirmation != ca.name:
+            messages.error(request, "Confirmation failed. Please type the CA name exactly.")
+            return self.get(request, pk)
+
+        # Store info for audit log before deletion
+        ca_id = ca.id
+        ca_name = ca.name
+        certificates_count = ca.certificates.count()
+        pending_requests_count = ca.pending_requests.count()
+
+        # Delete certificates and pending requests (cascade)
+        ca.certificates.all().delete()
+        ca.pending_requests.all().delete()
+
+        # Delete the CA
+        ca.delete()
+
+        # Log the deletion
+        AuditLog.log(
+            action=AuditLog.Action.CA_DELETED,
+            resource_type='certificate_authority',
+            resource_id=ca_id,
+            resource_name=ca_name,
+            user=request.user,
+            details={
+                'certificates_deleted': certificates_count,
+                'pending_requests_deleted': pending_requests_count,
+            },
+            ip_address=request.META.get('REMOTE_ADDR'),
+            user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
+        )
+
+        messages.success(
+            request,
+            f"Certificate Authority '{ca_name}' has been deleted along with "
+            f"{certificates_count} certificate(s) and {pending_requests_count} pending request(s)."
+        )
+        return redirect('core:ca_list')

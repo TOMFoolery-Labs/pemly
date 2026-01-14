@@ -1,0 +1,148 @@
+{% extends 'base.html' %}
+
+{% block title %}Delete CA{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+  <nav class="text-sm text-slate-500 mb-2">
+    <a href="{% url 'core:ca_list' %}" class="hover:text-slate-700">Certificate Authorities</a>
+    <span class="mx-2">/</span>
+    <a href="{% url 'core:ca_detail' pk=ca.pk %}" class="hover:text-slate-700">{{ ca.name }}</a>
+    <span class="mx-2">/</span>
+    <span class="text-slate-900">Delete</span>
+  </nav>
+  <h1 class="text-2xl font-semibold text-slate-900">Delete Certificate Authority</h1>
+  <p class="mt-1 text-sm text-slate-500">
+    Permanently delete <strong>{{ ca.name }}</strong>
+  </p>
+</div>
+
+<div class="max-w-2xl">
+  <!-- Danger Warning -->
+  <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+    <div class="flex">
+      <svg class="h-5 w-5 text-red-500 mr-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+      </svg>
+      <div>
+        <h3 class="text-sm font-medium text-red-800">This action is permanent and cannot be undone</h3>
+        <div class="text-sm text-red-700 mt-1">
+          <p>Deleting this CA will:</p>
+          <ul class="list-disc ml-5 mt-2 space-y-1">
+            <li>Permanently remove the CA certificate and private key</li>
+            <li>Delete all certificates issued by this CA</li>
+            <li>Delete all pending certificate requests for this CA</li>
+            <li>Break any services relying on certificates from this CA</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CA Info -->
+  <div class="card mb-6">
+    <div class="card-header">
+      <h2 class="text-lg font-medium text-slate-900">Certificate Authority</h2>
+    </div>
+    <div class="card-body">
+      <dl class="grid grid-cols-2 gap-4 text-sm">
+        <div>
+          <dt class="text-slate-500">Name</dt>
+          <dd class="font-medium text-slate-900">{{ ca.name }}</dd>
+        </div>
+        <div>
+          <dt class="text-slate-500">Type</dt>
+          <dd class="font-medium text-slate-900">{{ ca.get_ca_type_display }}</dd>
+        </div>
+        <div>
+          <dt class="text-slate-500">Common Name</dt>
+          <dd class="font-medium text-slate-900">{{ ca.common_name }}</dd>
+        </div>
+        <div>
+          <dt class="text-slate-500">Status</dt>
+          <dd class="font-medium text-slate-900">{{ ca.get_status_display }}</dd>
+        </div>
+      </dl>
+    </div>
+  </div>
+
+  <!-- What will be deleted -->
+  <div class="card mb-6">
+    <div class="card-header">
+      <h2 class="text-lg font-medium text-slate-900">Items to be Deleted</h2>
+    </div>
+    <div class="card-body">
+      <dl class="space-y-3 text-sm">
+        <div class="flex justify-between">
+          <dt class="text-slate-500">Certificates issued by this CA</dt>
+          <dd class="font-medium {% if certificates_count > 0 %}text-red-600{% else %}text-slate-900{% endif %}">
+            {{ certificates_count }}
+          </dd>
+        </div>
+        <div class="flex justify-between">
+          <dt class="text-slate-500">Pending certificate requests</dt>
+          <dd class="font-medium {% if pending_requests_count > 0 %}text-red-600{% else %}text-slate-900{% endif %}">
+            {{ pending_requests_count }}
+          </dd>
+        </div>
+      </dl>
+    </div>
+  </div>
+
+  {% if not can_delete %}
+  <!-- Child CAs block deletion -->
+  <div class="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
+    <div class="flex">
+      <svg class="h-5 w-5 text-amber-500 mr-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+      </svg>
+      <div>
+        <h3 class="text-sm font-medium text-amber-800">Cannot delete - has child CAs</h3>
+        <div class="text-sm text-amber-700 mt-1">
+          <p>You must delete the following child CAs first:</p>
+          <ul class="list-disc ml-5 mt-2 space-y-1">
+            {% for child in child_cas %}
+            <li>
+              <a href="{% url 'core:ca_detail' pk=child.pk %}" class="text-amber-800 underline hover:text-amber-900">
+                {{ child.name }}
+              </a>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flex items-center justify-end gap-3">
+    <a href="{% url 'core:ca_detail' pk=ca.pk %}" class="btn-secondary">Back</a>
+  </div>
+
+  {% else %}
+  <!-- Confirmation Form -->
+  <form method="post">
+    {% csrf_token %}
+    <div class="card mb-6">
+      <div class="card-header">
+        <h2 class="text-lg font-medium text-slate-900">Confirm Deletion</h2>
+      </div>
+      <div class="card-body">
+        <label for="confirm" class="form-label">
+          Type <strong class="text-red-600">{{ ca.name }}</strong> to confirm deletion
+        </label>
+        <input type="text" name="confirm" id="confirm" required autocomplete="off"
+               class="form-input mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg"
+               placeholder="Type the CA name exactly">
+      </div>
+    </div>
+
+    <div class="flex items-center justify-end gap-3">
+      <a href="{% url 'core:ca_detail' pk=ca.pk %}" class="btn-secondary">Cancel</a>
+      <button type="submit" class="btn-danger" data-loading-text="Deleting...">
+        Delete Certificate Authority
+      </button>
+    </div>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}
