@@ -11,13 +11,11 @@ Tests the full certificate lifecycle including:
 
 import pytest
 from datetime import timedelta
-from unittest.mock import patch, MagicMock
 
 from django.utils import timezone
 from freezegun import freeze_time
 
-from accounts.models import UserProfile
-from core.models import Certificate, CertificateAuthority, CertificateStatus, RevocationReason
+from core.models import CertificateStatus, RevocationReason
 from tests.factories import (
     UserFactory,
     CertificateFactory,

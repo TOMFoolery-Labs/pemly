@@ -13,7 +13,7 @@ from cryptography import x509
 
 from .models import (
     Certificate, CertificateAuthority, PendingCertificateRequest, APIKey,
-    AuditLog, CertificateStatus, CertificateType, KeyAlgorithm
+    AuditLog, CertificateStatus, CertificateType
 )
 from .serializers import (
     CertificateListSerializer, CertificateDetailSerializer,

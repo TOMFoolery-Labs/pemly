@@ -2,16 +2,13 @@ import json
 from datetime import timedelta
 
 from cryptography import x509
-from cryptography.hazmat.primitives import serialization
 from django import forms
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
-from django.utils.decorators import method_decorator
 from django.views import View
-from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import DetailView, ListView
 
 from core.models import (
@@ -590,7 +587,6 @@ class CertificateRenewView(CanManageCertificatesMixin, View):
                     # Reuse existing private key - generate new CSR with it
                     from cryptography.hazmat.primitives.serialization import load_pem_private_key
                     from cryptography.x509 import NameAttribute, Name, CertificateSigningRequestBuilder
-                    from cryptography.hazmat.primitives.asymmetric import rsa, ec
                     from cryptography.hazmat.primitives import hashes
                     from cryptography.x509.oid import NameOID
 
@@ -715,9 +711,9 @@ class CertificateRenewView(CanManageCertificatesMixin, View):
                 )
 
                 if revoke_old and old_certificate.status == CertificateStatus.REVOKED:
-                    messages.success(request, f"Certificate renewed successfully! Old certificate has been revoked.")
+                    messages.success(request, "Certificate renewed successfully! Old certificate has been revoked.")
                 else:
-                    messages.success(request, f"Certificate renewed successfully!")
+                    messages.success(request, "Certificate renewed successfully!")
 
                 return redirect('core:certificate_detail', pk=new_certificate.pk)
 
@@ -767,7 +763,6 @@ class CertificateDownloadView(LoginRequiredMixin, View):
         elif file_type == 'chain':
             # Full certificate chain: cert → intermediate(s) → root
             content = certificate.get_chain_pem()
-            chain_depth = certificate.ca.depth + 2  # cert + CA chain
             filename = f"{filename_base}-fullchain.crt"
             content_type = 'application/x-pem-file'
         elif file_type == 'ca':

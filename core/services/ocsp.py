@@ -7,22 +7,19 @@ Handles OCSP (Online Certificate Status Protocol) operations including:
 - Building and signing OCSP responses
 """
 
-import hashlib
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import ec, rsa
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
 from cryptography.x509 import ocsp
-from django.utils import timezone as django_timezone
 
 from core.services.cfssl import CFSSLError, CertificateRequest, get_cfssl_client
 
 if TYPE_CHECKING:
-    from core.models import Certificate, CertificateAuthority
+    from core.models import CertificateAuthority
 
 logger = logging.getLogger(__name__)
 

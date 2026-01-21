@@ -6,10 +6,8 @@ and send notifications to certificate owners.
 """
 
 import logging
-from datetime import timedelta
 from django.core.management.base import BaseCommand
 from django.utils import timezone
-from django.urls import reverse
 
 from core.models import Certificate, CertificateStatus, AppSettings, ExpirationWarningLog
 from core.services.email import send_notification

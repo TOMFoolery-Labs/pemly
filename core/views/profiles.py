@@ -2,7 +2,6 @@
 Certificate Profile management views.
 """
 
-import json
 
 from django import forms
 from django.contrib import messages
@@ -14,8 +13,6 @@ from django.views.generic import ListView
 
 from core.models import (
     CertificateProfile,
-    CertificateType,
-    KeyAlgorithm,
 )
 
 

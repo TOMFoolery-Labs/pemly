@@ -5,7 +5,7 @@ Provides a simplified interface to CFSSL for issuing certificates from CSRs.
 """
 
 import logging
-from datetime import datetime, timezone
+from datetime import timezone
 
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend

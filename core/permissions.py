@@ -7,7 +7,7 @@ and helper functions for checking user permissions throughout the application.
 
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
-from django.db.models import Q, QuerySet
+from django.db.models import QuerySet
 
 from core.models import Certificate, PendingCertificateRequest
 

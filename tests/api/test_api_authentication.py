@@ -5,7 +5,6 @@ Tests for API authentication mechanisms.
 import pytest
 import hashlib
 import secrets
-from unittest.mock import patch
 
 from django.urls import reverse
 from rest_framework import status
@@ -123,7 +122,7 @@ class TestAPIKeyAuthentication:
         client.credentials(HTTP_AUTHORIZATION=f'ApiKey {full_key}')
 
         url = reverse('api:certificate-list')
-        response = client.get(url)
+        client.get(url)  # Make request to update last_used_at
 
         api_key.refresh_from_db()
         assert api_key.last_used_at is not None

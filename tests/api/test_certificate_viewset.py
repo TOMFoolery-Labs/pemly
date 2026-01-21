@@ -8,10 +8,8 @@ from unittest.mock import patch, MagicMock
 from django.urls import reverse
 from rest_framework import status
 
-from accounts.models import UserProfile
 from core.models import CertificateStatus
 from tests.factories import (
-    UserFactory,
     CertificateFactory,
     CertificateAuthorityFactory,
 )

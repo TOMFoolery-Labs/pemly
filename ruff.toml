@@ -1,0 +1,10 @@
+[lint]
+select = ["E", "F", "W"]
+# Ignore line length - codebase has existing long lines
+ignore = ["E501"]
+
+[lint.per-file-ignores]
+# Settings files use star imports intentionally
+"pkife/settings/development.py" = ["F405"]
+"pkife/settings/production.py" = ["F405"]
+"pkife/settings/testing.py" = ["F405"]

@@ -9,12 +9,10 @@ Tests the complete request-approval-issuance workflow including:
 """
 
 import pytest
-from unittest.mock import patch, MagicMock
 
-from django.utils import timezone
 
 from accounts.models import UserProfile
-from core.models import Certificate, PendingCertificateRequest
+from core.models import PendingCertificateRequest
 from core.permissions import can_user_approve_request
 from tests.factories import (
     UserFactory,

@@ -4,13 +4,12 @@ Tests for CertificateAuthority model.
 
 import pytest
 from datetime import timedelta
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from django.conf import settings
 from django.utils import timezone
-from cryptography.fernet import Fernet
 
-from core.models import CertificateAuthority, CAType, CAStatus
+from core.models import CAType, CAStatus
 from tests.factories import CertificateAuthorityFactory, UserFactory
 
 

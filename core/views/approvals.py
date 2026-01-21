@@ -11,7 +11,6 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
-from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -22,7 +21,6 @@ from core.forms import CertificateRequestForm, RejectRequestForm
 from core.models import PendingCertificateRequest, Certificate, AuditLog
 from core.permissions import CanManageCertificatesMixin, get_pending_requests_for_user
 from core.cfssl import issue_certificate_from_csr
-from accounts.models import UserProfile
 
 
 def get_client_ip(request):

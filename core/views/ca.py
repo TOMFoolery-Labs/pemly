@@ -16,7 +16,7 @@ from core.models import (
     CAType,
     KeyAlgorithm,
 )
-from core.permissions import AdminOrSuperAdminRequiredMixin, NotRequesterMixin, SuperAdminRequiredMixin
+from core.permissions import AdminOrSuperAdminRequiredMixin, SuperAdminRequiredMixin
 from core.services import CFSSLClient, CFSSLError
 from core.services.cfssl import CertificateRequest
 

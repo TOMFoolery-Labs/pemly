@@ -3,16 +3,14 @@ Tests for PendingCertificateRequest API ViewSet.
 """
 
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from django.urls import reverse
 from rest_framework import status
 
-from accounts.models import UserProfile
 from core.models import PendingCertificateRequest
 from tests.factories import (
     UserFactory,
-    CertificateAuthorityFactory,
     PendingCertificateRequestFactory,
 )
 

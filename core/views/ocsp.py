@@ -15,7 +15,7 @@ from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 
-from core.models import AuditLog, CertificateAuthority
+from core.models import CertificateAuthority
 from core.services.ocsp import (
     OCSPError,
     build_ocsp_error_response,

@@ -7,7 +7,6 @@ Handles graceful failure without disrupting PKI workflows.
 
 import logging
 from typing import Optional, Dict, Any, List
-from django.conf import settings
 from django.contrib.auth.models import User
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
@@ -201,7 +200,7 @@ class SESEmailService(EmailService):
                 aws_secret_access_key=self.settings.get_ses_secret_access_key()
             )
 
-            response = client.send_email(
+            client.send_email(
                 Source=self.from_email,
                 Destination={'ToAddresses': [to_email]},
                 Message={

@@ -6,7 +6,7 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import (
     Certificate, CertificateAuthority, PendingCertificateRequest,
-    APIKey, CertificateType, KeyAlgorithm, CertificateStatus
+    APIKey, CertificateType, KeyAlgorithm
 )
 from .authentication import generate_api_key
 

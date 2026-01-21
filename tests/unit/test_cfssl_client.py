@@ -3,7 +3,6 @@ Unit tests for CFSSLClient with mocked HTTP and CLI.
 """
 
 import pytest
-import json
 from unittest.mock import patch, MagicMock
 
 import responses

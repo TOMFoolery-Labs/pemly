@@ -3,7 +3,6 @@ Tests for PendingCertificateRequest model.
 """
 
 import pytest
-from django.utils import timezone
 
 from core.models import PendingCertificateRequest
 from tests.factories import (

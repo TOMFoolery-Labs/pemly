@@ -3,8 +3,7 @@ Tests for RBAC role permissions.
 """
 
 import pytest
-from django.contrib.auth.models import User, AnonymousUser
-from django.core.exceptions import PermissionDenied
+from django.contrib.auth.models import User
 from django.test import RequestFactory
 
 from accounts.models import UserProfile
@@ -20,15 +19,11 @@ from core.permissions import (
     user_is_read_only,
     get_certificates_for_user,
     get_pending_requests_for_user,
-    RoleRequiredMixin,
     SuperAdminRequiredMixin,
     AdminOrSuperAdminRequiredMixin,
     CanManageCertificatesMixin,
     CanViewAuditLogMixin,
-    NotRequesterMixin,
-    NotAuditorMixin,
 )
-from core.models import Certificate, PendingCertificateRequest
 from tests.factories import (
     UserFactory,
     CertificateFactory,

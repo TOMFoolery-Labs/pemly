@@ -8,7 +8,6 @@ Usage:
 
 import os
 import shutil
-from pathlib import Path
 
 from django.conf import settings
 from django.core.management import call_command

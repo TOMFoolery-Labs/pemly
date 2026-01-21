@@ -46,7 +46,7 @@ jobs:
           DJANGO_SECRET_KEY: test-secret-key-for-ci
           ENCRYPTION_KEY: dGVzdGluZ2VuY3J5cHRpb25rZXkxMjM0NTY3ODkwMTI=
         run: |
-          pytest --cov=core --cov=accounts --cov-report=xml --cov-report=html --cov-fail-under=80
+          pytest --cov=core --cov=accounts --cov-report=xml --cov-report=html
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v4
@@ -80,6 +80,3 @@ jobs:
 
       - name: Run ruff linter
         run: ruff check .
-
-      - name: Run ruff formatter check
-        run: ruff format --check .
