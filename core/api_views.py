@@ -299,14 +299,14 @@ class CertificateViewSet(viewsets.ModelViewSet):
 
     @extend_schema(
         summary="Download certificate",
-        description="Download certificate in various formats (pem, der, p12)",
+        description="Download certificate in various formats (pem, chain)",
         parameters=[
             OpenApiParameter(
-                name='format',
+                name='output_format',
                 type=OpenApiTypes.STR,
                 location=OpenApiParameter.QUERY,
-                description='Download format (pem, der, p12)',
-                required=True
+                description='Download format (pem, chain)',
+                required=False
             )
         ],
         tags=["Certificates"]
@@ -315,7 +315,8 @@ class CertificateViewSet(viewsets.ModelViewSet):
     def download(self, request, pk=None):
         """Download certificate in specified format."""
         certificate = self.get_object()
-        format_type = request.query_params.get('format', 'pem')
+        # Use output_format to avoid conflict with DRF's format parameter
+        format_type = request.query_params.get('output_format', 'pem')
 
         if format_type == 'pem':
             return Response({
@@ -402,7 +403,7 @@ class PendingCertificateRequestViewSet(viewsets.ModelViewSet):
         queryset = super().get_queryset()
 
         # Non-admins can only see their own requests
-        if not has_permission(self.request.user, 'can_approve_requests'):
+        if not user_can_approve_requests(self.request.user):
             queryset = queryset.filter(requested_by=self.request.user)
 
         # Filter by status

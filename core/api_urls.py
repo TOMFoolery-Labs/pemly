@@ -11,6 +11,8 @@ from .api_views import (
     APIKeyViewSet
 )
 
+app_name = 'api'
+
 # Create router and register viewsets
 router = DefaultRouter()
 router.register(r'certificates', CertificateViewSet, basename='certificate')
