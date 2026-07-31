@@ -358,8 +358,20 @@ install_application() {
     log_success "Application files installed"
 }
 
+venv_is_healthy() {
+    # A venv breaks when the system python3 it symlinks is upgraded to a new
+    # minor version: bin/python then resolves to an interpreter whose
+    # site-packages path (lib/pythonX.Y) doesn't exist in the venv.
+    [[ -d "${VENV_DIR}" ]] && "${VENV_DIR}/bin/python" -c 'import pip' &>/dev/null
+}
+
 setup_python_env() {
     log_info "Setting up Python virtual environment..."
+
+    if [[ -d "${VENV_DIR}" ]] && ! venv_is_healthy; then
+        log_warn "Existing virtual environment is unusable (system Python upgraded?); rebuilding..."
+        rm -rf "${VENV_DIR}"
+    fi
 
     if [[ ! -d "${VENV_DIR}" ]]; then
         sudo -u "${PEMLY_USER}" python3 -m venv "${VENV_DIR}"
@@ -803,6 +815,48 @@ setup_ssl() {
     fi
 }
 
+seed_https_env_vars() {
+    # v0.10.1 enabled SECURE_SSL_REDIRECT, secure cookies, and HSTS by default in
+    # production. Env files written by older installers predate the override
+    # vars, which breaks existing deployments: behind nginx TLS termination the
+    # app must trust X-Forwarded-Proto to avoid a redirect loop, and HTTP-only
+    # sites would redirect to an https:// URL that nothing serves.
+    local env_file="${INSTALL_DIR}/.env"
+
+    if [[ ! -f "${env_file}" ]]; then
+        return
+    fi
+
+    if grep -qE '^(USE_X_FORWARDED_PROTO|SECURE_SSL_REDIRECT)=' "${env_file}"; then
+        return
+    fi
+
+    if grep -qs 'listen 443' \
+        /etc/nginx/sites-enabled/pemly \
+        /etc/nginx/conf.d/pemly.conf 2>/dev/null; then
+        cat >> "${env_file}" <<EOF
+
+# Added by install.sh --upgrade: nginx terminates TLS and sets X-Forwarded-Proto.
+USE_X_FORWARDED_PROTO=true
+EOF
+        log_info "Enabled USE_X_FORWARDED_PROTO (nginx terminates TLS)"
+    else
+        cat >> "${env_file}" <<EOF
+
+# Added by install.sh --upgrade: site is served over HTTP (no SSL configured).
+# Remove these lines after enabling HTTPS (e.g. sudo certbot --nginx).
+SECURE_SSL_REDIRECT=false
+SESSION_COOKIE_SECURE=false
+CSRF_COOKIE_SECURE=false
+SECURE_HSTS_SECONDS=0
+EOF
+        log_info "Disabled HTTPS enforcement in .env (HTTP-only deployment)"
+    fi
+
+    chown "${PEMLY_USER}:${PEMLY_GROUP}" "${env_file}"
+    chmod 600 "${env_file}"
+}
+
 # =============================================================================
 # Upgrade Function
 # =============================================================================
@@ -912,6 +966,14 @@ upgrade() {
 
     # Fix ownership
     chown -R "${PEMLY_USER}:${PEMLY_GROUP}" "${INSTALL_DIR}"
+
+    if ! venv_is_healthy; then
+        log_warn "Virtual environment missing or unusable (system Python upgraded?); rebuilding..."
+        rm -rf "${VENV_DIR}"
+        sudo -u "${PEMLY_USER}" python3 -m venv "${VENV_DIR}"
+    fi
+
+    seed_https_env_vars
 
     # Update Python dependencies
     log_info "Updating Python dependencies..."
