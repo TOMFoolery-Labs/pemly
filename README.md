@@ -94,6 +94,14 @@ curl -fsSL https://raw.githubusercontent.com/TOMFoolery-Labs/pemly/main/deploy/s
 
 This downloads the latest release (pre-built, no npm/node required) and installs PEMLY with systemd, nginx, PostgreSQL, and optional Let's Encrypt SSL. See [deploy/systemd/INSTALL.md](deploy/systemd/INSTALL.md) for options and manual installation.
 
+To upgrade an existing installation to the latest release:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/TOMFoolery-Labs/pemly/main/deploy/systemd/install.sh | sudo bash -s -- --upgrade
+```
+
+This preserves your configuration (`.env`), certificate storage, and database, then runs migrations and restarts the service.
+
 ## Local Development
 
 ### Prerequisites
