@@ -666,8 +666,8 @@ class CAKeyRestoreView(AdminOrSuperAdminRequiredMixin, View):
             return render(request, self.template_name, {'ca': ca})
 
 
-class IntermediateCACSRView(LoginRequiredMixin, View):
-    """Generate CSR for an intermediate CA to be signed offline."""
+class IntermediateCACSRView(AdminOrSuperAdminRequiredMixin, View):
+    """Generate CSR for an intermediate CA to be signed offline (Administrators and Super Admins only)."""
 
     template_name = 'ca/create_intermediate_csr.html'
 
@@ -769,8 +769,8 @@ class IntermediateCACSRView(LoginRequiredMixin, View):
         return render(request, self.template_name, {'form': form, 'parent_ca': parent_ca})
 
 
-class IntermediateCAImportView(LoginRequiredMixin, View):
-    """Import an externally-signed certificate for a pending intermediate CA."""
+class IntermediateCAImportView(AdminOrSuperAdminRequiredMixin, View):
+    """Import an externally-signed certificate for a pending intermediate CA (Administrators and Super Admins only)."""
 
     template_name = 'ca/import_certificate.html'
 
@@ -870,8 +870,8 @@ class OCSPConfigForm(forms.Form):
     )
 
 
-class OCSPConfigView(LoginRequiredMixin, View):
-    """View for configuring OCSP responder settings."""
+class OCSPConfigView(AdminOrSuperAdminRequiredMixin, View):
+    """View for configuring OCSP responder settings (Administrators and Super Admins only)."""
 
     template_name = 'ca/ocsp_config.html'
 
@@ -896,8 +896,8 @@ class OCSPConfigView(LoginRequiredMixin, View):
         return render(request, self.template_name, {'ca': ca, 'form': form})
 
 
-class OCSPGenerateCertView(LoginRequiredMixin, View):
-    """View for generating or regenerating the OCSP signing certificate."""
+class OCSPGenerateCertView(AdminOrSuperAdminRequiredMixin, View):
+    """View for generating or regenerating the OCSP signing certificate (Administrators and Super Admins only)."""
 
     def post(self, request, pk):
         ca = get_object_or_404(CertificateAuthority, pk=pk)

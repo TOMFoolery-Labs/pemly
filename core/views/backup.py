@@ -3,13 +3,13 @@ Backup and restore views for PKI data.
 """
 from django import forms
 from django.contrib import messages
-from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.views import View
 
 from core.models import AuditLog
+from core.permissions import SuperAdminRequiredMixin
 from core.services.backup import BackupService, BackupError
 
 
@@ -76,8 +76,8 @@ class RestoreConfirmForm(forms.Form):
     )
 
 
-class BackupView(LoginRequiredMixin, View):
-    """Create and download PKI backups."""
+class BackupView(SuperAdminRequiredMixin, View):
+    """Create and download PKI backups (Super Admins only)."""
 
     template_name = 'backup/index.html'
 
@@ -133,8 +133,8 @@ class BackupView(LoginRequiredMixin, View):
         })
 
 
-class RestoreUploadView(LoginRequiredMixin, View):
-    """Handle backup file upload and show preview."""
+class RestoreUploadView(SuperAdminRequiredMixin, View):
+    """Handle backup file upload and show preview (Super Admins only)."""
 
     def post(self, request):
         restore_form = RestoreForm(request.POST, request.FILES)
@@ -170,8 +170,8 @@ class RestoreUploadView(LoginRequiredMixin, View):
         return redirect('core:backup')
 
 
-class RestoreConfirmView(LoginRequiredMixin, View):
-    """Execute the restore after confirmation."""
+class RestoreConfirmView(SuperAdminRequiredMixin, View):
+    """Execute the restore after confirmation (Super Admins only)."""
 
     def post(self, request):
         confirm_form = RestoreConfirmForm(request.POST)

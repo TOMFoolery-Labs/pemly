@@ -14,10 +14,17 @@ from core.permissions import SuperAdminRequiredMixin
 
 
 def get_client_ip(request) -> str | None:
-    """Extract client IP from request."""
-    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-    if x_forwarded_for:
-        return x_forwarded_for.split(',')[0].strip()
+    """Extract client IP from request.
+
+    Only trusts the X-Forwarded-For header when TRUST_X_FORWARDED_FOR is enabled
+    (i.e. the app runs behind a trusted proxy); otherwise the header is spoofable.
+    """
+    from django.conf import settings
+
+    if getattr(settings, 'TRUST_X_FORWARDED_FOR', False):
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            return x_forwarded_for.split(',')[0].strip()
     return request.META.get('REMOTE_ADDR')
 
 

@@ -29,6 +29,7 @@ from .permissions import (
     user_can_issue_certificates,
     user_can_revoke_certificates,
     user_can_approve_requests,
+    get_certificates_for_user,
 )
 
 
@@ -73,8 +74,10 @@ class CertificateViewSet(viewsets.ModelViewSet):
         return CertificateDetailSerializer
 
     def get_queryset(self):
-        """Filter queryset based on query parameters."""
-        queryset = super().get_queryset()
+        """Filter queryset based on role and query parameters."""
+        # Role-based scoping: Certificate Requesters only see their own certificates,
+        # mirroring the web UI (get_certificates_for_user).
+        queryset = get_certificates_for_user(self.request.user).select_related('ca', 'created_by')
 
         # Filter by status
         status_param = self.request.query_params.get('status', None)

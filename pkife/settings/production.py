@@ -5,10 +5,25 @@ Production settings for pkife project.
 import os
 
 import dj_database_url
+from django.core.exceptions import ImproperlyConfigured
 
 from .base import *  # noqa: F401, F403
 
 DEBUG = False
+
+# Fail closed: never run production with the insecure development fallbacks.
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
+if not SECRET_KEY or SECRET_KEY == 'django-insecure-change-me-in-production':
+    raise ImproperlyConfigured(
+        "DJANGO_SECRET_KEY must be set to a unique secret value in production."
+    )
+
+# Private keys and stored credentials are encrypted at rest with this key; without
+# it the app cannot protect CA/certificate keys, so require it explicitly.
+if not os.environ.get('ENCRYPTION_KEY'):
+    raise ImproperlyConfigured(
+        "ENCRYPTION_KEY must be set in production to encrypt private keys at rest."
+    )
 
 ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', '').split(',')
 
@@ -37,13 +52,24 @@ SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'
 
-# HTTPS settings (enable when using HTTPS)
-# SECURE_SSL_REDIRECT = True
-# SESSION_COOKIE_SECURE = True
-# CSRF_COOKIE_SECURE = True
-# SECURE_HSTS_SECONDS = 31536000
-# SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-# SECURE_HSTS_PRELOAD = True
+
+def _env_bool(name: str, default: bool) -> bool:
+    return os.environ.get(name, str(default)).lower() == 'true'
+
+
+# HTTPS / secure-cookie settings. Secure by default; can be disabled via env vars
+# for internal HTTP-only deployments (e.g. behind a trusted TLS-terminating proxy).
+SECURE_SSL_REDIRECT = _env_bool('SECURE_SSL_REDIRECT', True)
+SESSION_COOKIE_SECURE = _env_bool('SESSION_COOKIE_SECURE', True)
+CSRF_COOKIE_SECURE = _env_bool('CSRF_COOKIE_SECURE', True)
+SECURE_HSTS_SECONDS = int(os.environ.get('SECURE_HSTS_SECONDS', '31536000'))
+SECURE_HSTS_INCLUDE_SUBDOMAINS = _env_bool('SECURE_HSTS_INCLUDE_SUBDOMAINS', True)
+SECURE_HSTS_PRELOAD = _env_bool('SECURE_HSTS_PRELOAD', True)
+
+# Honour the X-Forwarded-Proto header from a trusted TLS-terminating proxy so that
+# SECURE_SSL_REDIRECT does not cause a redirect loop.
+if _env_bool('USE_X_FORWARDED_PROTO', False):
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # CSRF trusted origins
 csrf_origins = os.environ.get('CSRF_TRUSTED_ORIGINS', '')

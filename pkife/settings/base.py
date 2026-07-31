@@ -24,6 +24,11 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-change-me-in-p
 # Encryption key for private keys at rest (Fernet)
 ENCRYPTION_KEY = os.environ.get('ENCRYPTION_KEY')
 
+# Whether to trust the X-Forwarded-For header when determining the client IP for
+# audit logs. Only enable this when running behind a trusted proxy that sets the
+# header itself; otherwise clients can spoof their recorded IP address.
+TRUST_X_FORWARDED_FOR = os.environ.get('TRUST_X_FORWARDED_FOR', 'false').lower() == 'true'
+
 # CFSSL Configuration
 CFSSL_API_URL = os.environ.get('CFSSL_API_URL', 'http://localhost:8888')
 CFSSL_AUTH_KEY = os.environ.get('CFSSL_AUTH_KEY', '')

@@ -22,7 +22,11 @@ from core.models import (
     KeyAlgorithm,
     RevocationReason,
 )
-from core.permissions import CanManageCertificatesMixin, get_certificates_for_user
+from core.permissions import (
+    CanManageCertificatesMixin,
+    get_certificates_for_user,
+    user_is_read_only,
+)
 from core.services import CFSSLClient, CFSSLError
 from core.services.cfssl import CertificateRequest
 
@@ -364,11 +368,15 @@ class CertificateCreateView(CanManageCertificatesMixin, View):
 
 
 class CertificateDetailView(LoginRequiredMixin, DetailView):
-    """View certificate details."""
+    """View certificate details (scoped to the certificates the user may see)."""
 
     model = Certificate
     template_name = 'certificates/detail.html'
     context_object_name = 'certificate'
+
+    def get_queryset(self):
+        # Role-based scoping: Certificate Requesters only see their own certificates.
+        return get_certificates_for_user(self.request.user).select_related('ca', 'created_by')
 
 
 class CertificateRevokeView(CanManageCertificatesMixin, View):
@@ -732,8 +740,19 @@ class CertificateRenewView(CanManageCertificatesMixin, View):
 class CertificateDownloadView(LoginRequiredMixin, View):
     """Download certificate files."""
 
+    # File types whose output contains the certificate's private key.
+    PRIVATE_KEY_FILE_TYPES = {'key', 'bundle-pem', 'bundle-pkcs12'}
+
     def get(self, request, pk, file_type):
-        certificate = get_object_or_404(Certificate, pk=pk)
+        # Role-based scoping: Certificate Requesters can only reach their own certificates.
+        certificate = get_object_or_404(
+            get_certificates_for_user(request.user), pk=pk
+        )
+
+        # Read-only users (Auditors) may view/download public material but never private keys.
+        if file_type in self.PRIVATE_KEY_FILE_TYPES and user_is_read_only(request.user):
+            messages.error(request, "You do not have permission to download private key material.")
+            return redirect('core:certificate_detail', pk=pk)
 
         # Log the download
         AuditLog.log(

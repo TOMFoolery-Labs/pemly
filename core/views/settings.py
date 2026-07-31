@@ -1,12 +1,12 @@
 from django import forms
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import redirect, render
 from django.views import View
 
 from core.models import AppSettings
+from core.permissions import AdminOrSuperAdminRequiredMixin
 
 
 class AppSettingsForm(forms.ModelForm):
@@ -147,8 +147,8 @@ class AppSettingsForm(forms.ModelForm):
         return instance
 
 
-class SettingsView(LoginRequiredMixin, View):
-    """View for managing application settings."""
+class SettingsView(AdminOrSuperAdminRequiredMixin, View):
+    """View for managing application settings (Administrators and Super Admins only)."""
 
     template_name = 'settings/index.html'
 
@@ -243,8 +243,8 @@ class SettingsView(LoginRequiredMixin, View):
             messages.error(None, f"Error restarting CFSSL: {e}")
 
 
-class CFSSLActionView(LoginRequiredMixin, View):
-    """Handle CFSSL control actions via POST."""
+class CFSSLActionView(AdminOrSuperAdminRequiredMixin, View):
+    """Handle CFSSL control actions via POST (Administrators and Super Admins only)."""
 
     def post(self, request):
         action = request.POST.get('action')
@@ -275,8 +275,8 @@ class CFSSLActionView(LoginRequiredMixin, View):
         return redirect('core:settings')
 
 
-class SendTestEmailView(LoginRequiredMixin, View):
-    """Send a test email to verify email configuration."""
+class SendTestEmailView(AdminOrSuperAdminRequiredMixin, View):
+    """Send a test email to verify email configuration (Administrators and Super Admins only)."""
 
     def post(self, request):
         if not request.user.profile.can_manage_settings():
