@@ -937,8 +937,11 @@ upgrade() {
         # Remove old files (except storage and venv which we backed up)
         rm -rf "${INSTALL_DIR:?}"
 
-        # Move new version into place
+        # Move new version into place. mktemp creates the directory 0700, which
+        # would lock out nginx and non-root users if a later step fails before
+        # the permissions fix-up, so correct it immediately.
         mv "${temp_dir}" "${INSTALL_DIR}"
+        chmod 755 "${INSTALL_DIR}"
     fi
 
     # Restore .env file
