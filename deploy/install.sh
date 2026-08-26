@@ -13,6 +13,9 @@
 #   --tls <mode>          selfsigned (default) | acme-dns | file | pemly
 #   --acme-email <email>  Contact address for ACME  (required for --tls acme-dns)
 #   --acme-provider <id>  lego DNS provider id      (required for --tls acme-dns)
+#   --dns-env KEY=VALUE   DNS provider credential, repeatable. Supplying these
+#                         makes --tls acme-dns a one-command install; without
+#                         them the script stops so you can add them by hand.
 #   --external-db         Use an existing PostgreSQL server instead of the bundled one
 #   --dir <path>          Install location (default /opt/pemly)
 #   --ref <git-ref>       Branch or tag to install from (default main)
@@ -35,6 +38,7 @@ TLS_MODE="selfsigned"
 ACME_EMAIL=""
 ACME_PROVIDER=""
 EXTERNAL_DB="false"
+DNS_ENV_PAIRS=()
 NON_INTERACTIVE="false"
 DO_UPGRADE="false"
 DO_UNINSTALL="false"
@@ -169,6 +173,9 @@ do_install() {
         [[ -n "${ACME_EMAIL}" ]]         && args+=(--acme-email "${ACME_EMAIL}")
         [[ -n "${ACME_PROVIDER}" ]]      && args+=(--acme-provider "${ACME_PROVIDER}")
         [[ "${EXTERNAL_DB}" == "true" ]] && args+=(--external-db)
+        for pair in "${DNS_ENV_PAIRS[@]+"${DNS_ENV_PAIRS[@]}"}"; do
+            args+=(--dns-env "${pair}")
+        done
 
         "${dir}/bootstrap.sh" "${args[@]}"
     else
@@ -176,7 +183,9 @@ do_install() {
         DOMAIN="$(grep -E '^PEMLY_DOMAIN=' "${dir}/.env" | cut -d= -f2- || true)"
     fi
 
-    if [[ "${TLS_MODE}" == "acme-dns" ]] && [[ ! -s "${dir}/.env.dns" ]]; then
+    if [[ "${TLS_MODE}" == "acme-dns" ]] \
+       && [[ ${#DNS_ENV_PAIRS[@]} -eq 0 ]] \
+       && ! grep -qE '^[A-Z0-9_]+=.+' "${dir}/.env.dns" 2>/dev/null; then
         log_warn "Add your DNS provider credentials to ${dir}/.env.dns, then run:"
         log_warn "  ${dir}/bootstrap.sh up"
         exit 0
@@ -256,6 +265,9 @@ while [[ $# -gt 0 ]]; do
         --acme-email)      ACME_EMAIL="$2"; shift 2 ;;
         --acme-provider)   ACME_PROVIDER="$2"; shift 2 ;;
         --external-db)     EXTERNAL_DB="true"; shift ;;
+        --dns-env)
+            [[ "$2" == *=* ]] || die "--dns-env expects KEY=VALUE, got '$2'"
+            DNS_ENV_PAIRS+=("$2"); shift 2 ;;
         --dir)             INSTALL_DIR="$2"; shift 2 ;;
         --ref)             GIT_REF="$2"; shift 2 ;;
         --upgrade)         DO_UPGRADE="true"; shift ;;

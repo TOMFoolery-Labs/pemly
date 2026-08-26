@@ -8,7 +8,8 @@
 #   ./bootstrap.sh                                  # init (if needed) and start
 #   ./bootstrap.sh init --domain pki.example.com    # write .env only
 #   ./bootstrap.sh init --tls acme-dns --domain pki.example.com \
-#                       --acme-email admin@example.com --acme-provider cloudflare
+#                       --acme-email admin@example.com --acme-provider cloudflare \
+#                       --dns-env CF_DNS_API_TOKEN=...    # repeatable
 #   ./bootstrap.sh install-cert ./cert.pem ./key.pem   # use a certificate you have
 #   ./bootstrap.sh issue-cert                          # let Pemly's own CA issue one
 #   ./bootstrap.sh up | down | logs | upgrade
@@ -74,6 +75,7 @@ ACME_EMAIL=""
 ACME_PROVIDER=""
 EXTERNAL_DB="false"
 FORCE="false"
+DNS_ENV_PAIRS=()
 
 cmd_init() {
     if [[ -f "${ENV_FILE}" ]] && [[ "${FORCE}" != "true" ]]; then
@@ -178,6 +180,30 @@ EOF
 
     chmod 600 "${ENV_FILE}"
 
+    write_dns_env_file
+    log_success "Wrote ${ENV_FILE}"
+    if [[ "${TLS_MODE}" == "acme-dns" ]] && [[ ${#DNS_ENV_PAIRS[@]} -eq 0 ]]; then
+        log_warn "Add your ${ACME_PROVIDER} credentials to ${DNS_ENV_FILE} before starting."
+    fi
+}
+
+write_dns_env_file() {
+    # Credentials passed via --dns-env win: they mean the caller is doing a
+    # one-shot install and expects the stack to come up already enrolled.
+    if [[ ${#DNS_ENV_PAIRS[@]} -gt 0 ]]; then
+        umask 077
+        {
+            echo "# DNS provider credentials for ACME DNS-01."
+            echo "# Mounted only into the traefik container."
+            for pair in "${DNS_ENV_PAIRS[@]}"; do
+                echo "${pair}"
+            done
+        } > "${DNS_ENV_FILE}"
+        chmod 600 "${DNS_ENV_FILE}"
+        log_info "Wrote ${#DNS_ENV_PAIRS[@]} DNS credential(s) to ${DNS_ENV_FILE}"
+        return
+    fi
+
     if [[ ! -f "${DNS_ENV_FILE}" ]]; then
         cat > "${DNS_ENV_FILE}" <<'EOF'
 # DNS provider credentials for ACME DNS-01, mounted only into the traefik
@@ -201,11 +227,6 @@ EOF
 #RFC2136_TSIG_SECRET=
 EOF
         chmod 600 "${DNS_ENV_FILE}"
-    fi
-
-    log_success "Wrote ${ENV_FILE}"
-    if [[ "${TLS_MODE}" == "acme-dns" ]]; then
-        log_warn "Add your ${ACME_PROVIDER} credentials to ${DNS_ENV_FILE} before starting."
     fi
 }
 
@@ -305,6 +326,9 @@ while [[ $# -gt 0 ]]; do
         --acme-email)    ACME_EMAIL="$2"; shift 2 ;;
         --acme-provider) ACME_PROVIDER="$2"; shift 2 ;;
         --external-db)   EXTERNAL_DB="true"; shift ;;
+        --dns-env)
+            [[ "$2" == *=* ]] || die "--dns-env expects KEY=VALUE, got '$2'"
+            DNS_ENV_PAIRS+=("$2"); shift 2 ;;
         --force)         FORCE="true"; shift ;;
         *)               break ;;
     esac
