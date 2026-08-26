@@ -4,50 +4,93 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
 
 permissions:
   contents: write
+  packages: write
 
 jobs:
-  release:
+  image:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
         with:
-          node-version: '20'
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build CSS
+      - name: Derive tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/docker/Dockerfile
+          # arm64 covers Raspberry Pi and Ampere hosts, which are common for a
+          # small on-prem PKI appliance.
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  release:
+    needs: image
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Airgapped sites cannot pull from GHCR, so ship the compose stack on its own.
+      # Pair it with `docker save ghcr.io/<repo>:<tag> | gzip > pemly-image.tgz`
+      # taken on a connected machine.
+      - name: Package the compose stack
         run: |
-          npm install
-          npm run tailwind:prod
+          tar -czf pemly-deploy-${{ github.ref_name }}.tar.gz \
+            -C deploy docker
+          echo "Contents:" && tar -tzf pemly-deploy-${{ github.ref_name }}.tar.gz
 
-      - name: Create release tarball
-        run: |
-          # Create a clean directory structure for the tarball
-          mkdir -p dist/pemly
-          rsync -a \
-            --exclude='.git' \
-            --exclude='.github' \
-            --exclude='node_modules' \
-            --exclude='package-lock.json' \
-            --exclude='*.pyc' \
-            --exclude='__pycache__' \
-            --exclude='.env' \
-            --exclude='db.sqlite3' \
-            --exclude='staticfiles' \
-            --exclude='.claude' \
-            --exclude='.venv' \
-            --exclude='venv' \
-            --exclude='dist' \
-            . dist/pemly/
-          tar -czvf pemly-${{ github.ref_name }}.tar.gz -C dist pemly
-
-      - name: Create Release
+      - name: Create release
         uses: softprops/action-gh-release@v2
         with:
-          files: pemly-${{ github.ref_name }}.tar.gz
+          files: pemly-deploy-${{ github.ref_name }}.tar.gz
           generate_release_notes: true
+          body: |
+            ## Install
+
+            ```bash
+            curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/main/deploy/install.sh | sudo bash
+            ```
+
+            ## Upgrade
+
+            ```bash
+            /opt/pemly/deploy/docker/bootstrap.sh upgrade
+            ```
+
+            Container image: `ghcr.io/${{ github.repository }}:${{ github.ref_name }}`

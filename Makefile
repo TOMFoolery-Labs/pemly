@@ -1,43 +1,54 @@
-.PHONY: up dev down build logs shell migrate createsuperuser
+.PHONY: up up-build dev dev-build down down-v build logs shell migrate test lint issue-cert
 
-COMPOSE := docker compose --env-file .env -f deploy/docker/compose.yml
+# All compose state lives in deploy/docker: compose files, .env, and the overlays
+# that bootstrap.sh selects via COMPOSE_FILE.
+COMPOSE_DIR := deploy/docker
+COMPOSE     := docker compose
+BOOTSTRAP   := $(COMPOSE_DIR)/bootstrap.sh
 
-# Production
+# Production ------------------------------------------------------------------
 up:
-	$(COMPOSE) up -d
+	cd $(COMPOSE_DIR) && $(COMPOSE) up -d
 
 up-build:
-	$(COMPOSE) up -d --build
+	cd $(COMPOSE_DIR) && $(COMPOSE) up -d --build
 
-# Development
+# Development -----------------------------------------------------------------
 dev:
-	$(COMPOSE) -f deploy/docker/compose.override.yml up
+	cd $(COMPOSE_DIR) && $(COMPOSE) -f compose.yml -f compose.dev.yml up
 
 dev-build:
-	$(COMPOSE) -f deploy/docker/compose.override.yml up --build
+	cd $(COMPOSE_DIR) && $(COMPOSE) -f compose.yml -f compose.dev.yml up --build
 
-# Stop
+# Lifecycle -------------------------------------------------------------------
 down:
-	$(COMPOSE) down
+	cd $(COMPOSE_DIR) && $(COMPOSE) down
 
 down-v:
-	$(COMPOSE) down -v
+	@echo "WARNING: this deletes the database volume and every stored key."
+	cd $(COMPOSE_DIR) && $(COMPOSE) down -v
 
-# Build
 build:
-	$(COMPOSE) build
+	cd $(COMPOSE_DIR) && $(COMPOSE) build
 
-# Logs
 logs:
-	$(COMPOSE) logs -f app
+	cd $(COMPOSE_DIR) && $(COMPOSE) logs -f app
 
-# Shell access
 shell:
-	$(COMPOSE) exec app bash
+	cd $(COMPOSE_DIR) && $(COMPOSE) exec app bash
 
-# Django commands
 migrate:
-	$(COMPOSE) exec app python manage.py migrate
+	cd $(COMPOSE_DIR) && $(COMPOSE) exec app python manage.py migrate
 
-createsuperuser:
-	$(COMPOSE) exec app python manage.py createsuperuser
+# Have Pemly's own CA issue the web UI certificate, then reload the proxy.
+issue-cert:
+	$(BOOTSTRAP) issue-cert
+
+# Quality ---------------------------------------------------------------------
+test:
+	cd $(COMPOSE_DIR) && $(COMPOSE) run --rm --no-deps --entrypoint "" \
+		-v $(CURDIR):/app -e DJANGO_SETTINGS_MODULE=pkife.settings.testing \
+		app python -m pytest
+
+lint:
+	docker run --rm -v $(CURDIR):/w -w /w ghcr.io/astral-sh/ruff:latest check .

@@ -1,0 +1,22 @@
+# External database overlay.
+#
+# Use this when Postgres is managed elsewhere (RDS, Cloud SQL, an existing cluster).
+# Set DATABASE_URL in .env to the full connection string; the bundled db service and
+# its volume are then removed entirely.
+#
+# Enable with bootstrap.sh --external-db, which writes
+# COMPOSE_FILE=compose.yml:compose.external-db.yml into .env.
+#
+# Requires Docker Compose v2.24+ for the !reset / !override tags.
+
+services:
+  db: !reset null
+
+  app:
+    # Without this, app would still wait for the (now absent) db service.
+    depends_on: !override
+      cfssl:
+        condition: service_healthy
+
+volumes:
+  pemly_pgdata: !reset null

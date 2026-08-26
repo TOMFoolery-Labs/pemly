@@ -313,10 +313,16 @@ class TestCFSSLClientCLI:
                 ca_key='KEY',
             )
 
+    @patch('core.services.cfssl.Path')
     @patch('shutil.which')
-    def test_binary_not_found(self, mock_which):
+    def test_binary_not_found(self, mock_which, mock_path):
         """Test error when CFSSL binary is not found."""
         mock_which.return_value = None
+        # _find_binary falls back to probing well-known install locations, so
+        # mocking `which` alone is not enough: anywhere cfssl is genuinely
+        # installed (the container, CI) it would still be found and this test
+        # would exercise the wrong path.
+        mock_path.return_value.is_file.return_value = False
 
         client = CFSSLClient(base_url='http://localhost:8888')
 

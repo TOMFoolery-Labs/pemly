@@ -1,52 +1,141 @@
+# Pemly Certificate Manager
+#
+# Default TLS: Traefik serves its own self-signed certificate, so a fresh install
+# has a working HTTPS login page with zero configuration. To use a real
+# certificate, either drop one in (`./bootstrap.sh install-cert cert.pem key.pem`)
+# or enable ACME DNS-01 (see compose.acme-dns.yml).
+#
+# The app never publishes a host port: Traefik is the only ingress.
+
+name: pemly
+
 services:
+  traefik:
+    image: traefik:v3.3
+    restart: unless-stopped
+    ports:
+      - "${PEMLY_HTTP_PORT:-80}:80"
+      - "${PEMLY_HTTPS_PORT:-443}:443"
+    # DNS provider credentials live in their own file so that the proxy never sees
+    # the Django secret key or the database password.
+    env_file:
+      # Only present when ACME DNS-01 is in use; absent for every other TLS mode.
+      - path: .env.dns
+        required: false
+    command:
+      - --global.checknewversion=false
+      - --global.sendanonymoususage=false
+      - --log.level=${PEMLY_TRAEFIK_LOG_LEVEL:-INFO}
+      - --accesslog=true
+      - --entrypoints.web.address=:80
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --entrypoints.websecure.address=:443
+      # TLS is configured on the entrypoint, not per-router: a router that declares
+      # its own tls block overrides the entrypoint defaults, which silently
+      # discards the certResolver that compose.acme-dns.yml sets.
+      - --entrypoints.websecure.http.tls=true
+      # File provider only: no Docker socket is mounted into the proxy.
+      - --providers.file.directory=/etc/traefik/dynamic
+      - --providers.file.watch=true
+    volumes:
+      - ./traefik/dynamic:/etc/traefik/dynamic:ro
+      # Written by `manage.py issue_web_cert` or `bootstrap.sh install-cert`.
+      # Absent files are simply skipped by Traefik, which falls back to its
+      # built-in self-signed certificate.
+      - pemly_certs:/certs:ro
+    depends_on:
+      - app
+    networks:
+      - edge
+
   app:
+    image: ${PEMLY_IMAGE:-ghcr.io/tomfoolery-labs/pemly:latest}
     build:
       context: ../..
       dockerfile: deploy/docker/Dockerfile
-    env_file:
-      - ../../.env
-    ports:
-      - "8000:8000"
-    environment:
-      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
-      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
-      - DATABASE_URL=${DATABASE_URL:-postgres://pemly:${POSTGRES_PASSWORD}@db:5432/pemly}
-      - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}
-      - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS:-}
-      - CFSSL_BINARY_PATH=/usr/local/bin/cfssl
-      - CFSSL_HOST=127.0.0.1
-      - CFSSL_PORT=8888
-      - CFSSL_AUTO_START=true
-    volumes:
-      - app_storage:/app/storage
     restart: unless-stopped
+    env_file:
+      # bootstrap.sh writes this. Marked optional so `docker compose config` can
+      # validate the stack (in CI, or before init) without it.
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgres://${POSTGRES_USER:-pemly}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-pemly}}
+      DJANGO_ALLOWED_HOSTS: ${PEMLY_DOMAIN},localhost,127.0.0.1,app
+      CSRF_TRUSTED_ORIGINS: https://${PEMLY_DOMAIN}
+      # CFSSL is its own container; the app must never spawn one.
+      CFSSL_AUTO_START: "false"
+      CFSSL_API_URL: http://cfssl:8888
+      CFSSL_HOST: cfssl
+      CFSSL_PORT: "8888"
+      # Traefik always terminates TLS, so the app can trust X-Forwarded-Proto and
+      # keep SECURE_SSL_REDIRECT on without risking a redirect loop.
+      USE_X_FORWARDED_PROTO: "true"
+    volumes:
+      - pemly_certs:/certs
+    depends_on:
+      db:
+        condition: service_healthy
+      cfssl:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/accounts/login/')"]
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz', timeout=5).status == 200 else 1)"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
+      start_period: 60s
+    networks:
+      - edge
+      - internal
 
-  # PostgreSQL database (optional - can use external database instead)
-  # To use external DB: set DATABASE_URL in .env and run with --profile external
+  cfssl:
+    image: ${PEMLY_IMAGE:-ghcr.io/tomfoolery-labs/pemly:latest}
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+    restart: unless-stopped
+    # Bypass the app entrypoint (which runs migrations) and run the binary that is
+    # already baked into the image.
+    entrypoint: ["cfssl"]
+    command: ["serve", "-address", "0.0.0.0", "-port", "8888"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8888/api/v1/cfssl/health', timeout=5).status == 200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    # Never reachable from outside the compose network.
+    networks:
+      - internal
+
   db:
     image: postgres:16-alpine
-    profiles: ["", "docker-db"]  # Included by default, excluded with --profile external
-    env_file:
-      - ../../.env
+    restart: unless-stopped
     environment:
-      - POSTGRES_USER=${POSTGRES_USER:-pemly}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB:-pemly}
+      POSTGRES_USER: ${POSTGRES_USER:-pemly}
+      # Validated by bootstrap.sh before start. Not marked required here: that
+      # would make `docker compose build` fail on a fresh checkout, before there
+      # is any .env to read.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
+      POSTGRES_DB: ${POSTGRES_DB:-pemly}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - pemly_pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pemly} -d ${POSTGRES_DB:-pemly}"]
       interval: 5s
       timeout: 5s
-      retries: 5
-    restart: unless-stopped
+      retries: 10
+    networks:
+      - internal
 
 volumes:
-  postgres_data:
-  app_storage:
+  # The only durable state: all CA and certificate material is stored encrypted in
+  # Postgres (see core/models.py), not on disk.
+  pemly_pgdata:
+  pemly_certs:
+
+networks:
+  edge:
+  internal:
+    internal: true

@@ -12,9 +12,42 @@ from django.db.models import QuerySet
 from core.models import Certificate, PendingCertificateRequest
 
 
-class RoleRequiredMixin(LoginRequiredMixin):
+class AuthenticatedRoleMixin(LoginRequiredMixin):
     """
-    Base mixin to require specific role(s) to access a view.
+    Base for every role check: resolve authentication before authorisation.
+
+    Role checks read request.user.profile, which AnonymousUser does not have.
+    Running them first turns "you are not logged in" into a 403, which is both
+    the wrong status and a dead end for the user - the session simply needs
+    renewing. That is exactly what happens after changing your own password:
+    the session auth hash rotates, the next request is anonymous, and the user
+    is met with Forbidden instead of the login page.
+
+    Subclasses implement check_role() and can assume an authenticated user with
+    a profile.
+    """
+
+    def check_role(self, request):
+        """Raise PermissionDenied if the authenticated user may not proceed."""
+        raise NotImplementedError
+
+    def dispatch(self, request, *args, **kwargs):
+        # LoginRequiredMixin.handle_no_permission() redirects to the login page
+        # with ?next=, so the user lands back where they were going.
+        if not request.user.is_authenticated:
+            return self.handle_no_permission()
+
+        if not hasattr(request.user, 'profile'):
+            raise PermissionDenied("User has no profile")
+
+        self.check_role(request)
+
+        return super().dispatch(request, *args, **kwargs)
+
+
+class RoleRequiredMixin(AuthenticatedRoleMixin):
+    """
+    Require specific role(s) to access a view.
 
     Usage:
         class MyView(RoleRequiredMixin, View):
@@ -22,16 +55,11 @@ class RoleRequiredMixin(LoginRequiredMixin):
     """
     required_roles = []  # Override in subclass
 
-    def dispatch(self, request, *args, **kwargs):
-        if not hasattr(request.user, 'profile'):
-            raise PermissionDenied("User has no profile")
-
+    def check_role(self, request):
         if request.user.profile.role not in self.required_roles:
             raise PermissionDenied(
                 f"This page requires one of the following roles: {', '.join(self.required_roles)}"
             )
-
-        return super().dispatch(request, *args, **kwargs)
 
 
 class SuperAdminRequiredMixin(RoleRequiredMixin):
@@ -72,42 +100,32 @@ class CanViewAuditLogMixin(RoleRequiredMixin):
     required_roles = ['super_admin', 'administrator', 'certificate_manager', 'auditor']
 
 
-class NotRequesterMixin(LoginRequiredMixin):
+class NotRequesterMixin(AuthenticatedRoleMixin):
     """
     Block Certificate Requesters from accessing a view.
 
     Allows: All roles except Certificate Requester
     """
 
-    def dispatch(self, request, *args, **kwargs):
-        if not hasattr(request.user, 'profile'):
-            raise PermissionDenied("User has no profile")
-
+    def check_role(self, request):
         if request.user.profile.role == 'certificate_requester':
             raise PermissionDenied(
                 "Certificate Requesters do not have access to this page."
             )
 
-        return super().dispatch(request, *args, **kwargs)
 
-
-class NotAuditorMixin(LoginRequiredMixin):
+class NotAuditorMixin(AuthenticatedRoleMixin):
     """
     Block Auditors from accessing a view (read-only users).
 
     Allows: All roles except Auditor
     """
 
-    def dispatch(self, request, *args, **kwargs):
-        if not hasattr(request.user, 'profile'):
-            raise PermissionDenied("User has no profile")
-
+    def check_role(self, request):
         if request.user.profile.is_read_only():
             raise PermissionDenied(
                 "Auditors have read-only access and cannot perform this action."
             )
-
-        return super().dispatch(request, *args, **kwargs)
 
 
 # Helper functions for use in views and templates

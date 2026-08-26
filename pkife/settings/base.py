@@ -16,7 +16,7 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 # Application version
-VERSION = '0.9.0'
+VERSION = '0.11.0'
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-change-me-in-production')
@@ -38,12 +38,6 @@ CFSSL_AUTO_START = os.environ.get('CFSSL_AUTO_START', 'true').lower() == 'true'
 CFSSL_BINARY_PATH = os.environ.get('CFSSL_BINARY_PATH', '')  # Auto-detect if empty
 CFSSL_HOST = os.environ.get('CFSSL_HOST', 'localhost')
 CFSSL_PORT = int(os.environ.get('CFSSL_PORT', '8888'))
-
-# Certificate storage path
-CERTIFICATE_STORAGE_PATH = os.environ.get(
-    'CERTIFICATE_STORAGE_PATH',
-    str(BASE_DIR / 'storage' / 'certificates')
-)
 
 # Application definition
 INSTALLED_APPS = [

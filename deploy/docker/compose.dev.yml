@@ -1,0 +1,33 @@
+# Local development overlay.
+#
+#   docker compose -f compose.yml -f compose.dev.yml up
+#
+# Deliberately NOT named compose.override.yml: an auto-loading override that swaps
+# in development settings is a foot-gun on a production host.
+#
+# Runs the builder stage with the source tree bind-mounted and Django's autoreloading
+# server, and exposes Postgres for local tooling.
+
+services:
+  app:
+    build:
+      target: builder
+    volumes:
+      - ../..:/app
+      # Anonymous volumes keep the image's copies from being shadowed by the mount.
+      - /app/node_modules
+      - /app/staticfiles
+    environment:
+      DJANGO_SETTINGS_MODULE: pkife.settings.development
+      DJANGO_DEBUG: "true"
+      # Development runs a single process, so the in-process CFSSL manager
+      # (core/services/cfssl_manager.py) is safe here and saves running the
+      # separate container.
+      CFSSL_AUTO_START: "true"
+      CFSSL_API_URL: http://localhost:8888
+      CFSSL_HOST: localhost
+    command: python manage.py runserver 0.0.0.0:8000
+
+  db:
+    ports:
+      - "5432:5432"

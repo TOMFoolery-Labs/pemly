@@ -32,6 +32,16 @@
     </div>
     <div class="card-body">
       <dl class="grid grid-cols-2 gap-4 text-sm">
+        {% if cfssl_status.managed_externally %}
+        <div>
+          <dt class="text-slate-500">Managed by</dt>
+          <dd class="font-mono text-slate-900">Separate service</dd>
+        </div>
+        <div>
+          <dt class="text-slate-500">Endpoint</dt>
+          <dd class="font-mono text-slate-900">{{ cfssl_status.host }}:{{ cfssl_status.port }}</dd>
+        </div>
+        {% else %}
         <div>
           <dt class="text-slate-500">Binary Path</dt>
           <dd class="font-mono text-slate-900">{{ cfssl_status.binary_found|default:"Not found" }}</dd>
@@ -40,6 +50,8 @@
           <dt class="text-slate-500">Process ID</dt>
           <dd class="font-mono text-slate-900">{{ cfssl_status.pid|default:"-" }}</dd>
         </div>
+        {% endif %}
+        {% if not cfssl_status.managed_externally %}
         <div>
           <dt class="text-slate-500">Host</dt>
           <dd class="font-mono text-slate-900">{{ cfssl_status.host|default:"localhost" }}</dd>
@@ -48,8 +60,21 @@
           <dt class="text-slate-500">Port</dt>
           <dd class="font-mono text-slate-900">{{ cfssl_status.port|default:"8888" }}</dd>
         </div>
+        {% endif %}
       </dl>
 
+      {% if cfssl_status.managed_externally %}
+      <div class="mt-6 alert-info">
+        <p class="text-sm">
+          CFSSL runs as its own service in this deployment, so it is not started or
+          stopped from here. Manage it with
+          <code class="bg-slate-100 px-1 rounded">docker compose restart cfssl</code>,
+          and set its address with the <code class="bg-slate-100 px-1 rounded">CFSSL_HOST</code>
+          and <code class="bg-slate-100 px-1 rounded">CFSSL_PORT</code> environment
+          variables rather than the fields below.
+        </p>
+      </div>
+      {% else %}
       <!-- CFSSL Control Buttons -->
       <div class="mt-6 flex items-center gap-3">
         <form method="post" action="{% url 'core:cfssl_action' %}" class="inline">
@@ -74,7 +99,7 @@
         {% endif %}
       </div>
 
-      {% if not cfssl_status.binary_found %}
+      {% if not cfssl_status.binary_found and not cfssl_status.managed_externally %}
       <div class="mt-4 alert-warning">
         <p class="text-sm">
           CFSSL binary not found. Install it with:
@@ -82,6 +107,7 @@
           <code class="bg-amber-100 px-1 rounded">go install github.com/cloudflare/cfssl/cmd/...@latest</code>
         </p>
       </div>
+      {% endif %}
       {% endif %}
     </div>
   </div>
@@ -94,6 +120,15 @@
         <h2 class="text-lg font-medium text-slate-900">CFSSL Configuration</h2>
       </div>
       <div class="card-body space-y-6">
+        {% if cfssl_status.managed_externally %}
+        <div class="alert-info">
+          <p class="text-sm">
+            These settings have no effect in this deployment: CFSSL runs as its own
+            service and its address comes from the environment. They are kept for
+            installations that run CFSSL in-process.
+          </p>
+        </div>
+        {% endif %}
         <!-- Auto Start -->
         <div class="flex items-start">
           <div class="flex items-center h-5">

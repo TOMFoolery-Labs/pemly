@@ -199,7 +199,11 @@ class SettingsView(AdminOrSuperAdminRequiredMixin, View):
             from core.services import get_cfssl_manager
             manager = get_cfssl_manager()
             status = manager.get_status()
-            status['binary_found'] = manager.find_binary()
+            # Probing the local filesystem for a binary is meaningless when the
+            # server is another container; report the configured address instead.
+            status['binary_found'] = (
+                None if manager.managed_externally else manager.find_binary()
+            )
             return status
         except Exception as e:
             return {
@@ -252,6 +256,18 @@ class CFSSLActionView(AdminOrSuperAdminRequiredMixin, View):
         try:
             from core.services import get_cfssl_manager
             manager = get_cfssl_manager()
+
+            # Starting a child process here would bind a second CFSSL inside the
+            # app container while the real one runs elsewhere; stopping would do
+            # nothing at all. The buttons are hidden in this mode, so reaching
+            # this branch means a hand-crafted POST.
+            if manager.managed_externally:
+                messages.error(
+                    request,
+                    "CFSSL runs as its own service in this deployment and cannot be "
+                    "controlled from here. Use: docker compose restart cfssl"
+                )
+                return redirect('core:settings')
 
             if action == 'start':
                 if manager.start():

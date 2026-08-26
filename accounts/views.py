@@ -1,5 +1,5 @@
 from django.contrib import messages
-from django.contrib.auth import login, logout
+from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404, redirect, render
@@ -165,11 +165,25 @@ class UserEditView(SuperAdminRequiredMixin, View):
         form = UserEditForm(request.POST, instance=user)
 
         if form.is_valid():
+            changed_own_password = (
+                user.pk == request.user.pk
+                and form.cleaned_data.get('change_password')
+                and form.cleaned_data.get('new_password')
+            )
+
             form.save(
                 updated_by=request.user,
                 ip_address=get_client_ip(request),
                 user_agent=request.META.get('HTTP_USER_AGENT', '')[:500]
             )
+
+            if changed_own_password:
+                # set_password() rotates the session auth hash, which invalidates
+                # the current session on the next request. Without this the admin
+                # who just changed their own password is silently logged out and
+                # bounced off the page they are being redirected to.
+                update_session_auth_hash(request, user)
+
             messages.success(
                 request,
                 f"User '{user.username}' updated successfully."
