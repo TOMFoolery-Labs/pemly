@@ -74,6 +74,34 @@ prompt_input() {
 # =============================================================================
 # Docker
 # =============================================================================
+install_prereqs() {
+    # A minimal cloud image often has neither. get.docker.com needs curl, and the
+    # installer clones the repo, so failing here would be the first thing a user
+    # hits on a fresh VM.
+    local missing=()
+    command -v curl &>/dev/null || missing+=(curl)
+    command -v git  &>/dev/null || missing+=(git)
+    [[ ${#missing[@]} -eq 0 ]] && return
+
+    log_info "Installing prerequisites: ${missing[*]}"
+    case "${OS_ID}" in
+        ubuntu|debian|raspbian|linuxmint|pop)
+            apt-get update -qq
+            DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "${missing[@]}"
+            ;;
+        rhel|centos|rocky|almalinux|fedora)
+            if command -v dnf &>/dev/null; then
+                dnf install -y -q "${missing[@]}"
+            else
+                yum install -y -q "${missing[@]}"
+            fi
+            ;;
+        *)
+            die "Install ${missing[*]} manually, then re-run this script."
+            ;;
+    esac
+}
+
 install_docker() {
     if command -v docker &>/dev/null && docker compose version &>/dev/null; then
         log_info "Docker with the Compose v2 plugin is already installed"
@@ -127,6 +155,7 @@ compose_dir() { echo "${INSTALL_DIR}/deploy/docker"; }
 do_install() {
     check_root
     detect_os
+    install_prereqs
     install_docker
     fetch_application
 
