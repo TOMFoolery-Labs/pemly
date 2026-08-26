@@ -35,6 +35,7 @@ services:
       - --entrypoints.web.http.redirections.entrypoint.to=websecure
       - --entrypoints.web.http.redirections.entrypoint.scheme=https
       - --entrypoints.websecure.address=:443
+      - --entrypoints.websecure.http.tls=true
       - --providers.file.directory=/etc/traefik/dynamic
       - --providers.file.watch=true
       # Make the resolver the entrypoint default so the dynamic router in

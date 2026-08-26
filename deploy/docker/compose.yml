@@ -31,6 +31,10 @@ services:
       - --entrypoints.web.http.redirections.entrypoint.to=websecure
       - --entrypoints.web.http.redirections.entrypoint.scheme=https
       - --entrypoints.websecure.address=:443
+      # TLS is configured on the entrypoint, not per-router: a router that declares
+      # its own tls block overrides the entrypoint defaults, which silently
+      # discards the certResolver that compose.acme-dns.yml sets.
+      - --entrypoints.websecure.http.tls=true
       # File provider only: no Docker socket is mounted into the proxy.
       - --providers.file.directory=/etc/traefik/dynamic
       - --providers.file.watch=true

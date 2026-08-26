@@ -86,12 +86,25 @@ cmd_init() {
         return 0
     fi
 
+    # --force rewrites .env. Regenerating these three would be silently
+    # destructive against data that already exists: a new ENCRYPTION_KEY makes
+    # every stored private key unreadable, and a new POSTGRES_PASSWORD locks the
+    # app out of an existing database volume. Carry them forward.
+    local carried=()
     if [[ -f "${ENV_FILE}" ]]; then
         local backup="${ENV_FILE}.bak.$(date +%Y%m%d%H%M%S)"
         cp "${ENV_FILE}" "${backup}"
+        chmod 600 "${backup}"
         log_warn "Existing .env backed up to ${backup}"
-        log_warn "If it held ENCRYPTION_KEY, copy that value into the new .env or every"
-        log_warn "stored CA private key becomes unreadable."
+
+        local existing
+        for key in ENCRYPTION_KEY DJANGO_SECRET_KEY POSTGRES_PASSWORD; do
+            existing="$(grep -E "^${key}=" "${ENV_FILE}" | tail -n1 | cut -d= -f2- || true)"
+            if [[ -n "${existing}" ]]; then
+                carried+=("${key}=${existing}")
+            fi
+        done
+        [[ ${#carried[@]} -gt 0 ]] && log_info "Preserving existing ${#carried[@]} secret(s) from the previous .env"
     fi
 
     [[ -n "${DOMAIN}" ]] || die "--domain is required (e.g. --domain pki.example.com)"
@@ -180,6 +193,25 @@ EOF
 #PEMLY_ADMIN_EMAIL=admin@example.com
 #PEMLY_ADMIN_PASSWORD=
 EOF
+
+    if [[ ${#carried[@]} -gt 0 ]]; then
+        python3 - "${ENV_FILE}" "${carried[@]}" <<'PYEOF'
+import sys
+
+env_path, pairs = sys.argv[1], sys.argv[2:]
+replacements = dict(pair.split('=', 1) for pair in pairs)
+
+lines = []
+for line in open(env_path).read().splitlines():
+    key = line.split('=', 1)[0]
+    if key in replacements:
+        line = f'{key}={replacements[key]}'
+    lines.append(line)
+open(env_path, 'w').write('\n'.join(lines) + '\n')
+PYEOF
+        log_warn "ENCRYPTION_KEY, DJANGO_SECRET_KEY and POSTGRES_PASSWORD were kept."
+        log_warn "To start genuinely fresh, also remove the data: docker compose down -v"
+    fi
 
     chmod 600 "${ENV_FILE}"
 

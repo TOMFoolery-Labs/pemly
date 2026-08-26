@@ -29,7 +29,10 @@ http:
       entryPoints:
         - websecure
       service: pemly
-      tls: {}
+      # Deliberately no `tls` block. Declaring one here - even an empty one -
+      # takes precedence over the entrypoint's TLS configuration and would drop
+      # the ACME certResolver, leaving Traefik serving its default certificate.
+      # TLS for this router comes from --entrypoints.websecure.http.tls.
 
   services:
     pemly:
