@@ -90,3 +90,58 @@ class TestCFSSLAutoStartGate:
             config._start_cfssl()
 
         mock_manager.return_value.start.assert_called_once()
+
+
+class TestExternallyManagedCFSSL:
+    """
+    When CFSSL runs as its own service, the deployment owns its address.
+
+    The AppSettings row defaults to localhost:8888. Letting it win means the app
+    health-checks its own container, finds nothing listening, and reports a
+    perfectly healthy CFSSL as stopped - which is what the settings page did.
+    """
+
+    @override_settings(CFSSL_AUTO_START=False, CFSSL_HOST='cfssl', CFSSL_PORT=8888)
+    def test_address_comes_from_settings_not_the_database(self, db):
+        from core.models import AppSettings
+        from core.services import get_cfssl_manager
+
+        app_settings = AppSettings.get()
+        app_settings.cfssl_host = 'localhost'
+        app_settings.cfssl_port = 9999
+        app_settings.save()
+
+        manager = get_cfssl_manager()
+
+        assert manager.managed_externally is True
+        assert manager._get_config()['host'] == 'cfssl'
+        assert manager._get_config()['port'] == 8888
+
+    @override_settings(CFSSL_AUTO_START=True)
+    def test_database_still_wins_for_in_process_cfssl(self, db):
+        from core.models import AppSettings
+        from core.services import get_cfssl_manager
+
+        app_settings = AppSettings.get()
+        app_settings.cfssl_host = 'localhost'
+        app_settings.cfssl_port = 9999
+        app_settings.save()
+
+        manager = get_cfssl_manager()
+
+        assert manager.managed_externally is False
+        assert manager._get_config()['port'] == 9999
+
+    @override_settings(CFSSL_AUTO_START=False, CFSSL_HOST='cfssl', CFSSL_PORT=8888)
+    def test_status_reports_external_management_and_no_pid(self, db):
+        from core.services import get_cfssl_manager
+
+        manager = get_cfssl_manager()
+        with patch.object(manager, 'health_check', return_value=True):
+            status = manager.get_status()
+
+        assert status['managed_externally'] is True
+        assert status['running'] is True
+        # The other container's PID lives in a different namespace, so reporting
+        # one here would be meaningless at best and wrong at worst.
+        assert status['pid'] is None

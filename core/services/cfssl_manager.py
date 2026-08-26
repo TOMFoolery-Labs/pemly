@@ -59,12 +59,35 @@ class CFSSLManager:
         self._binary_path = None
         self._health_check_interval = 10  # seconds
 
+    @property
+    def managed_externally(self) -> bool:
+        """
+        True when CFSSL runs as its own service rather than as our child.
+
+        The container deployment runs `cfssl serve` in a separate container and
+        sets CFSSL_AUTO_START=false; only local development uses the in-process
+        manager.
+        """
+        return not getattr(settings, 'CFSSL_AUTO_START', True)
+
     def _get_config(self) -> dict:
         """
         Get configuration from database settings, falling back to Django settings.
 
         Returns dict with: auto_start, binary_path, host, port
         """
+        # When CFSSL is a separate service the deployment owns its address, not
+        # the AppSettings row. Reading the database here would health-check the
+        # row's default of localhost:8888, find nothing listening inside the app
+        # container, and report a perfectly healthy server as stopped.
+        if self.managed_externally:
+            return {
+                'auto_start': False,
+                'binary_path': getattr(settings, 'CFSSL_BINARY_PATH', '') or None,
+                'host': getattr(settings, 'CFSSL_HOST', 'localhost'),
+                'port': int(getattr(settings, 'CFSSL_PORT', 8888)),
+            }
+
         # Try to get from database first
         try:
             from core.models import AppSettings
@@ -386,7 +409,10 @@ class CFSSLManager:
         return {
             'running': healthy,  # If healthy, it's running
             'healthy': healthy,
-            'pid': self._find_cfssl_pid() if healthy else None,
+            'managed_externally': self.managed_externally,
+            # A PID is only meaningful for a process on this host; the separate
+            # container's PID is in another namespace entirely.
+            'pid': None if self.managed_externally else (self._find_cfssl_pid() if healthy else None),
             'binary_path': self._binary_path,
             'host': self._host,
             'port': self._port,
