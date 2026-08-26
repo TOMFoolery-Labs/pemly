@@ -21,6 +21,9 @@ cd "${SCRIPT_DIR}"
 
 ENV_FILE="${SCRIPT_DIR}/.env"
 DNS_ENV_FILE="${SCRIPT_DIR}/.env.dns"
+# Must match the PEMLY_IMAGE default in compose.yml. If they ever drift the only
+# cost is building an image we could have pulled, which is cached and harmless.
+DEFAULT_IMAGE="ghcr.io/tomfoolery-labs/pemly:latest"
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BLUE='\033[0;34m'; NC='\033[0m'
 log_info()    { echo -e "${BLUE}[INFO]${NC} $*"; }
@@ -291,6 +294,7 @@ cmd_up() {
     grep -qE '^ENCRYPTION_KEY=.+' "${ENV_FILE}" \
         || die "ENCRYPTION_KEY is missing from ${ENV_FILE}; the app will refuse to start"
 
+    ensure_image
     log_info "Starting Pemly..."
     docker compose up -d
     echo
@@ -298,6 +302,30 @@ cmd_up() {
     log_info "Watch the first-run admin password: docker compose logs -f app"
     # shellcheck disable=SC1090
     log_info "URL: https://$(grep -E '^PEMLY_DOMAIN=' "${ENV_FILE}" | cut -d= -f2-)"
+}
+
+# Build locally when the image cannot be pulled. Without this, `up` attempts a
+# pull that fails with a bare "error from registry: denied", interleaves it with
+# the progress display, and only then falls back to building - which reads as a
+# fatal error even though the build is proceeding normally.
+ensure_image() {
+    local image
+    image="$(grep -E '^PEMLY_IMAGE=' "${ENV_FILE}" 2>/dev/null | tail -n1 | cut -d= -f2- || true)"
+    image="${image:-${DEFAULT_IMAGE}}"
+
+    if docker image inspect "${image}" &>/dev/null; then
+        return
+    fi
+
+    if docker pull --quiet "${image}" &>/dev/null; then
+        log_info "Pulled ${image}"
+        return
+    fi
+
+    log_info "No published image for ${image}; building it locally."
+    log_info "First build takes several minutes - do not interrupt it."
+    docker compose build
+    log_success "Image built"
 }
 
 cmd_upgrade() {
