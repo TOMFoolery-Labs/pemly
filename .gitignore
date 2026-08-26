@@ -123,3 +123,4 @@ theme/static/css/dist/
 *.crt
 *.p12
 *.pfx
+deploy/docker/traefik/dynamic/certificates.yml

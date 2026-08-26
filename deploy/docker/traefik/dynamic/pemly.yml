@@ -41,13 +41,16 @@ http:
         servers:
           - url: "http://app:8000"
 
-tls:
-  certificates:
-    # Missing files are logged and skipped; Traefik then falls back to its
-    # built-in self-signed certificate, so a fresh install still serves HTTPS.
-    - certFile: /certs/tls.crt
-      keyFile: /certs/tls.key
+# Certificates are NOT declared here. Traefik logs a Unable to append
+# certificate ... to store error at ERR level for every declared file that is
+# absent, on startup and on every reload - which is the normal state for the
+# self-signed and ACME modes. That noise is indistinguishable from a real
+# failure when reading the log.
+#
+# Instead, bootstrap.sh writes certificates.yml into this directory at the
+# moment a certificate is actually installed (install-cert / issue-cert).
 
+tls:
   options:
     default:
       minVersion: VersionTLS12
