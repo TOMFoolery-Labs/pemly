@@ -60,12 +60,18 @@ pemly/
 │       ├── certificates.py
 │       ├── settings.py    # Settings and email configuration
 │       └── ...
-├── deploy/                # Deployment configurations
-│   └── docker/            # Docker deployment
+├── deploy/                # Deployment
+│   ├── install.sh         # One-command installer (installs Docker, starts the stack)
+│   ├── migrate-from-systemd.sh
+│   └── docker/
 │       ├── Dockerfile
-│       ├── compose.yml
-│       ├── compose.override.yml
-│       └── entrypoint.sh
+│       ├── bootstrap.sh   # Secret generation, TLS mode, lifecycle commands
+│       ├── compose.yml    # traefik + app + cfssl + postgres
+│       ├── compose.acme-dns.yml   # ACME DNS-01 overlay
+│       ├── compose.external-db.yml
+│       ├── compose.dev.yml
+│       ├── entrypoint.sh
+│       └── traefik/dynamic/
 ├── pkife/
 │   └── settings/          # Split settings (base/dev/prod)
 ├── templates/             # Django templates
@@ -80,27 +86,42 @@ pemly/
 │   └── settings/          # Settings page UI
 ├── static/
 │   └── css/               # Tailwind CSS (input + compiled output)
-└── storage/
-    └── certificates/      # Filesystem certificate storage
 ```
+
+All CA and certificate material is stored encrypted in PostgreSQL, not on the
+filesystem - the database volume is the only durable state.
 
 ## Server Installation
 
 Deploy on a Linux server with a single command:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/TOMFoolery-Labs/pemly/main/deploy/systemd/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/TOMFoolery-Labs/pemly/main/deploy/install.sh | sudo bash
 ```
 
-This downloads the latest release (pre-built, no npm/node required) and installs PEMLY with systemd, nginx, PostgreSQL, and optional Let's Encrypt SSL. See [deploy/systemd/INSTALL.md](deploy/systemd/INSTALL.md) for options and manual installation.
+This installs Docker if it is missing, generates secrets, and starts the stack:
+Traefik terminating TLS in front of the app, CFSSL as its own service, and
+PostgreSQL. Nothing else is installed on the host - no Python, Node, nginx or
+certbot.
 
-To upgrade an existing installation to the latest release:
+The site serves HTTPS immediately using a self-signed certificate. Find the
+generated administrator password with:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/TOMFoolery-Labs/pemly/main/deploy/systemd/install.sh | sudo bash -s -- --upgrade
+/opt/pemly/deploy/docker/bootstrap.sh logs app | grep -A4 'first administrator'
 ```
 
-This preserves your configuration (`.env`), certificate storage, and database, then runs migrations and restarts the service.
+To upgrade:
+
+```bash
+/opt/pemly/deploy/docker/bootstrap.sh upgrade
+```
+
+This pulls the latest image and restarts; migrations run automatically. Your
+`.env`, database and certificates are untouched.
+
+See [deploy/README.md](deploy/README.md) for TLS options, air-gapped installs,
+external databases, and migrating from an older systemd installation.
 
 ## Local Development
 
@@ -169,137 +190,95 @@ CFSSL starts automatically with Django (configured via `CFSSL_AUTO_START=true`).
 
 Visit http://localhost:8000 and log in with your superuser credentials.
 
-## Docker Deployment
+## Running the Stack
 
-### Prerequisites
+The deployment is four containers: Traefik terminating TLS, the Django app,
+CFSSL as its own service, and PostgreSQL. `deploy/docker/bootstrap.sh` drives
+all of it.
 
-- Docker and Docker Compose
-
-### 1. Configure Environment
-
-```bash
-cp .env.example .env
+```
+        :80/:443
+           │
+      ┌────▼─────┐   TLS termination: self-signed, your own certificate,
+      │ traefik  │   ACME DNS-01, or one Pemly issues itself
+      └────┬─────┘
+           │ http, X-Forwarded-Proto: https
+      ┌────▼─────┐
+      │   app    │   gunicorn + Django, no published host port
+      └──┬────┬──┘
+         │    │
+    ┌────▼─┐ ┌▼─────┐
+    │cfssl │ │  db  │  internal network only, no internet access
+    └──────┘ └──────┘
 ```
 
-Generate and set the required secrets in `.env`:
+CFSSL runs as its own service rather than being spawned by a gunicorn worker.
+The app image still carries the binary because signing goes through the CLI;
+only key generation uses the HTTP API.
+
+### First start
 
 ```bash
-# Generate Django secret key
-python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
-
-# Generate encryption key for private keys
-python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+cd deploy/docker
+./bootstrap.sh init --domain pki.example.com
+./bootstrap.sh up
 ```
 
-Edit `.env`:
+`init` generates `DJANGO_SECRET_KEY`, a Fernet `ENCRYPTION_KEY` and a database
+password into `deploy/docker/.env`. **Keep that file.** `ENCRYPTION_KEY` decrypts
+every stored CA and certificate private key and cannot be regenerated.
+
+The first start creates an administrator and prints a one-time password:
 
 ```bash
-DJANGO_SECRET_KEY=<generated-secret-key>
-ENCRYPTION_KEY=<generated-fernet-key>
-POSTGRES_PASSWORD=<strong-database-password>
-DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,your-domain.com
+./bootstrap.sh logs app | grep -A4 'first administrator'
 ```
 
-### 2. Start Development Server
+### TLS
+
+| Mode | When to use it | How |
+|------|----------------|-----|
+| self-signed | Default; works instantly with no configuration | nothing to do |
+| your own certificate | Corporate CA, or a certificate you already hold | `./bootstrap.sh install-cert cert.pem key.pem` |
+| Pemly issues it | Air-gapped; Pemly is already a CA | `./bootstrap.sh issue-cert` |
+| ACME DNS-01 | Public domain, no inbound port 80 | `./bootstrap.sh init --tls acme-dns ...` |
+
+DNS-01 is the challenge that works without inbound connectivity or a public A
+record - it only needs outbound access to the ACME directory and your DNS
+provider's API. Traefik bundles lego, so around 150 providers work with the
+stock image, `rfc2136` included for internal BIND and Windows DNS.
+
+The app always sits behind TLS termination and always receives
+`X-Forwarded-Proto: https`, so `SECURE_SSL_REDIRECT` and secure cookies stay on
+in every mode.
+
+### Everyday commands
+
+```bash
+make up            # start
+make down          # stop
+make logs          # follow app logs
+make shell         # shell in the app container
+make migrate       # run migrations
+make test          # run the suite against the live source tree
+make issue-cert    # issue the web certificate from Pemly's own CA
+./deploy/docker/bootstrap.sh upgrade   # pull the latest image and restart
+```
+
+### Local container development
 
 ```bash
 make dev-build
 ```
 
-This runs in development mode with:
-- Live code reload (local files mounted into container)
-- Django debug mode enabled
-- PostgreSQL port exposed on localhost:5432
+Runs the builder stage with the source tree mounted, Django's autoreloader, debug
+mode, and PostgreSQL exposed on localhost:5432. Development is a single process,
+so it uses the in-process CFSSL manager instead of the separate container.
 
-### 3. Start Production Server
+### More
 
-```bash
-make up-build
-```
-
-This runs in production mode with:
-- Gunicorn WSGI server (2 workers, 4 threads)
-- Optimized Docker image
-- Debug mode disabled
-
-**Using an external database:**
-
-```bash
-# Set DATABASE_URL in .env:
-# DATABASE_URL=postgres://user:password@your-db-host:5432/pemly
-
-# Start only the app container
-docker compose -f deploy/docker/compose.yml up -d --build app
-```
-
-### 4. Post-Start Setup
-
-```bash
-# View logs
-make logs
-
-# Create superuser
-make createsuperuser
-```
-
-### 5. Access the Application
-
-Visit http://localhost:8000 and log in with your superuser credentials.
-
-### Docker Commands
-
-```bash
-make up           # Start production (detached)
-make up-build     # Start production with rebuild
-make dev          # Start development
-make dev-build    # Start development with rebuild
-make down         # Stop containers
-make down-v       # Stop and remove volumes (WARNING: deletes data)
-make logs         # Follow app logs
-make shell        # Access container shell
-make migrate      # Run database migrations
-make createsuperuser  # Create Django superuser
-```
-
-### Production Considerations
-
-For production deployments:
-
-1. **HTTPS**: Put a reverse proxy (nginx, Traefik, Caddy) in front with SSL termination
-2. **Environment**: Set `DJANGO_ALLOWED_HOSTS` and `CSRF_TRUSTED_ORIGINS` appropriately
-3. **Secrets**: Consider using Docker secrets or a secrets manager instead of `.env`
-4. **Backups**: Regularly backup the `postgres_data` and `app_storage` volumes
-5. **ENCRYPTION_KEY**: Store securely - losing it means losing access to all private keys
-
-### Architecture
-
-```
-┌─────────────────────────────────────────┐
-│              Docker Host                │
-│  ┌───────────────────────────────────┐  │
-│  │           app container           │  │
-│  │  ┌─────────┐    ┌──────────────┐  │  │
-│  │  │ Gunicorn│    │    CFSSL     │  │  │
-│  │  │ (Django)│────│  (auto-start)│  │  │
-│  │  └─────────┘    └──────────────┘  │  │
-│  │         │                         │  │
-│  │         ▼                         │  │
-│  │   ┌───────────┐                   │  │
-│  │   │ WhiteNoise│ (static files)    │  │
-│  │   └───────────┘                   │  │
-│  └───────────────────────────────────┘  │
-│              │                          │
-│              ▼                          │
-│  ┌───────────────────────────────────┐  │
-│  │          db container             │  │
-│  │         (PostgreSQL)              │  │
-│  └───────────────────────────────────┘  │
-│                                         │
-│  Volumes:                               │
-│  - postgres_data (database)             │
-│  - app_storage (certificates)           │
-└─────────────────────────────────────────┘
-```
+[deploy/README.md](deploy/README.md) covers external databases, air-gapped
+installs, backups, and migrating from an older systemd installation.
 
 ## Development
 
@@ -334,7 +313,11 @@ Access Django admin at http://localhost:8000/admin/ for troubleshooting and low-
 | `CFSSL_API_URL` | CFSSL API server URL | `http://localhost:8888` |
 | `CFSSL_AUTH_KEY` | CFSSL authentication key | Empty |
 | `ENCRYPTION_KEY` | Fernet key for encrypting private keys | Required |
-| `CERTIFICATE_STORAGE_PATH` | Filesystem path for certificate export | `./storage/certificates` |
+| `CFSSL_AUTO_START` | Spawn CFSSL in-process. Off in production, where it is its own container | `false` (prod), `true` (dev) |
+| `USE_X_FORWARDED_PROTO` | Trust the proxy's protocol header | `true` (prod) |
+| `SECURE_SSL_REDIRECT` | Redirect HTTP to HTTPS | `true` (prod) |
+| `PEMLY_DOMAIN` | Hostname the site is served on; used by compose | Required |
+| `PEMLY_ADMIN_USERNAME` / `PEMLY_ADMIN_PASSWORD` | First-run administrator. Password is generated and logged once if unset | `admin` / generated |
 
 ### Settings Files
 

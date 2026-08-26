@@ -80,3 +80,43 @@ jobs:
 
       - name: Run ruff linter
         run: ruff check .
+
+  # The container image is the deployment artifact, so a broken Dockerfile is a
+  # broken release. Build it on every PR without pushing.
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/docker/Dockerfile
+          push: false
+          load: true
+          tags: pemly:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Validate every compose variant renders
+        working-directory: deploy/docker
+        env:
+          PEMLY_DOMAIN: pemly.example.test
+          POSTGRES_PASSWORD: ci-placeholder
+          PEMLY_ACME_EMAIL: ci@example.test
+          PEMLY_ACME_DNS_PROVIDER: cloudflare
+        run: |
+          docker compose -f compose.yml config -q
+          docker compose -f compose.yml -f compose.acme-dns.yml config -q
+          docker compose -f compose.yml -f compose.external-db.yml config -q
+          docker compose -f compose.yml -f compose.dev.yml config -q
+
+      - name: Check shell scripts parse
+        run: |
+          bash -n deploy/install.sh
+          bash -n deploy/docker/bootstrap.sh
+          bash -n deploy/docker/entrypoint.sh

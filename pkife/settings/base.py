@@ -39,12 +39,6 @@ CFSSL_BINARY_PATH = os.environ.get('CFSSL_BINARY_PATH', '')  # Auto-detect if em
 CFSSL_HOST = os.environ.get('CFSSL_HOST', 'localhost')
 CFSSL_PORT = int(os.environ.get('CFSSL_PORT', '8888'))
 
-# Certificate storage path
-CERTIFICATE_STORAGE_PATH = os.environ.get(
-    'CERTIFICATE_STORAGE_PATH',
-    str(BASE_DIR / 'storage' / 'certificates')
-)
-
 # Application definition
 INSTALLED_APPS = [
     'django.contrib.admin',

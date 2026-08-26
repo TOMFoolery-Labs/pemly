@@ -1,0 +1,59 @@
+# ACME DNS-01 overlay.
+#
+# DNS-01 is the only ACME challenge that works when the host has no inbound port 80
+# and no public A record - it proves control of the domain by writing a TXT record,
+# so it only needs *outbound* access to the ACME directory and your DNS provider's
+# API.
+#
+# Enable it by running bootstrap.sh with --tls acme-dns, which writes
+# COMPOSE_FILE=compose.yml:compose.acme-dns.yml into .env so that a plain
+# `docker compose up -d` keeps picking this up.
+#
+# Required in .env:
+#     PEMLY_DOMAIN=pki.example.com
+#     PEMLY_ACME_EMAIL=admin@example.com
+#     PEMLY_ACME_DNS_PROVIDER=cloudflare
+#
+# Required in .env.dns - the credential variables your provider expects, e.g.
+#     CF_DNS_API_TOKEN=...                     # cloudflare
+#     AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=...   # route53
+#     RFC2136_NAMESERVER=... RFC2136_TSIG_KEY=... RFC2136_TSIG_SECRET=...
+#
+# Traefik bundles lego, so roughly 150 providers work with the stock image and no
+# custom build. rfc2136 covers internal BIND and Windows DNS, which is usually the
+# right choice on a network that has no public zone at all.
+# Provider variable names: https://go-acme.github.io/lego/dns/
+
+services:
+  traefik:
+    command:
+      - --global.checknewversion=false
+      - --global.sendanonymoususage=false
+      - --log.level=${PEMLY_TRAEFIK_LOG_LEVEL:-INFO}
+      - --accesslog=true
+      - --entrypoints.web.address=:80
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --entrypoints.websecure.address=:443
+      - --providers.file.directory=/etc/traefik/dynamic
+      - --providers.file.watch=true
+      # Make the resolver the entrypoint default so the dynamic router in
+      # traefik/dynamic/pemly.yml inherits it unchanged.
+      - --entrypoints.websecure.http.tls.certresolver=pemly
+      - --entrypoints.websecure.http.tls.domains[0].main=${PEMLY_DOMAIN}
+      - --certificatesresolvers.pemly.acme.email=${PEMLY_ACME_EMAIL}
+      - --certificatesresolvers.pemly.acme.storage=/acme/acme.json
+      - --certificatesresolvers.pemly.acme.caserver=${PEMLY_ACME_CA_SERVER:-https://acme-v02.api.letsencrypt.org/directory}
+      - --certificatesresolvers.pemly.acme.dnschallenge=true
+      - --certificatesresolvers.pemly.acme.dnschallenge.provider=${PEMLY_ACME_DNS_PROVIDER}
+      # Ask public resolvers directly for the TXT record rather than trusting the
+      # host's resolver, which on an internal network often serves a split-horizon
+      # view of the zone and will never see the challenge record.
+      - --certificatesresolvers.pemly.acme.dnschallenge.resolvers=${PEMLY_ACME_DNS_RESOLVERS:-1.1.1.1:53,8.8.8.8:53}
+    volumes:
+      - ./traefik/dynamic:/etc/traefik/dynamic:ro
+      - pemly_certs:/certs:ro
+      - pemly_acme:/acme
+
+volumes:
+  pemly_acme:

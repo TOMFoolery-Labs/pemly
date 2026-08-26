@@ -1,0 +1,51 @@
+# Traefik dynamic configuration for Pemly.
+#
+# This one file covers three of the four TLS modes:
+#
+#   selfsigned  no cert files present -> Traefik serves its built-in self-signed
+#               certificate. This is the zero-config default.
+#   file        you supplied a certificate:
+#                 ./bootstrap.sh install-cert /path/cert.pem /path/key.pem
+#   pemly       Pemly issued the certificate itself:
+#                 docker compose exec app python manage.py issue_web_cert
+#
+# All three land at the same paths, so switching between them is just a matter of
+# replacing the files and restarting Traefik. A restart is genuinely required: the
+# file provider watches THIS directory, but certificate files named below are only
+# read when the configuration is loaded. `bootstrap.sh install-cert` and
+# `bootstrap.sh issue-cert` handle the restart for you.
+#
+# The fourth mode (ACME DNS-01) is layered on top by compose.acme-dns.yml, which
+# sets a default certResolver on the websecure entrypoint. Routers here inherit it
+# without needing to name it.
+
+http:
+  routers:
+    pemly:
+      # Match every host. Django's ALLOWED_HOSTS is the authority on which
+      # hostnames are acceptable, so there is no value in duplicating that list
+      # here - and it keeps this file free of environment-specific values.
+      rule: "PathPrefix(`/`)"
+      entryPoints:
+        - websecure
+      service: pemly
+      tls: {}
+
+  services:
+    pemly:
+      loadBalancer:
+        passHostHeader: true
+        servers:
+          - url: "http://app:8000"
+
+tls:
+  certificates:
+    # Missing files are logged and skipped; Traefik then falls back to its
+    # built-in self-signed certificate, so a fresh install still serves HTTPS.
+    - certFile: /certs/tls.crt
+      keyFile: /certs/tls.key
+
+  options:
+    default:
+      minVersion: VersionTLS12
+      sniStrict: false

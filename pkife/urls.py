@@ -7,7 +7,11 @@ from django.contrib import admin
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
+from core.views.health import healthz
+
 urlpatterns = [
+    # Container health check; exempt from the HTTPS redirect in production settings.
+    path('healthz', healthz, name='healthz'),
     path('admin/', admin.site.urls),
     path('accounts/', include('accounts.urls')),
     # API endpoints

@@ -67,9 +67,18 @@ SECURE_HSTS_INCLUDE_SUBDOMAINS = _env_bool('SECURE_HSTS_INCLUDE_SUBDOMAINS', Tru
 SECURE_HSTS_PRELOAD = _env_bool('SECURE_HSTS_PRELOAD', True)
 
 # Honour the X-Forwarded-Proto header from a trusted TLS-terminating proxy so that
-# SECURE_SSL_REDIRECT does not cause a redirect loop.
-if _env_bool('USE_X_FORWARDED_PROTO', False):
+# SECURE_SSL_REDIRECT does not cause a redirect loop. The supported deployment always
+# runs behind Traefik, which terminates TLS and sets this header, so it defaults on.
+if _env_bool('USE_X_FORWARDED_PROTO', True):
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# The health endpoint is polled by the container runtime over plain HTTP on the
+# internal network, so it must not be redirected to https.
+SECURE_REDIRECT_EXEMPT = [r'^healthz/?$']
+
+# CFSSL runs as its own container in the supported deployment; the app must not try to
+# spawn it. Only local development uses the in-process manager (core/services/cfssl_manager).
+CFSSL_AUTO_START = _env_bool('CFSSL_AUTO_START', False)
 
 # CSRF trusted origins
 csrf_origins = os.environ.get('CSRF_TRUSTED_ORIGINS', '')
