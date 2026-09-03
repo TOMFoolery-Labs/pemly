@@ -10,8 +10,13 @@
 
 services:
   app:
+    # A separate tag: this build carries pytest and the browser-reload tooling,
+    # and must never be mistaken for - or overwrite - the runtime image.
+    image: pemly:dev
     build:
       target: builder
+      args:
+        DEV_DEPS: "true"
     volumes:
       - ../..:/app
       # Anonymous volumes keep the image's copies from being shadowed by the mount.

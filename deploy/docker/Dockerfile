@@ -26,9 +26,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # requirements.txt is a compiled lock: exact versions with hashes, generated from
 # requirements.in by `make lock`. --require-hashes makes the build fail rather
 # than silently install a package whose contents changed - and it is the runtime
-# lock, so pytest and the other dev tooling no longer land in the image at all.
-COPY requirements.txt .
-RUN pip install --user --no-cache-dir --require-hashes -r requirements.txt
+# lock, so pytest and the other dev tooling never land in the runtime image.
+#
+# DEV_DEPS=true installs requirements-dev.txt instead. compose.dev.yml sets it,
+# because the development overlay runs this stage directly with the source tree
+# mounted, and its settings module imports django_browser_reload while `make
+# test` runs pytest inside it. Neither exists in the runtime lock.
+ARG DEV_DEPS=false
+COPY requirements.txt requirements-dev.txt ./
+RUN if [ "${DEV_DEPS}" = "true" ]; then \
+        pip install --user --no-cache-dir --require-hashes -r requirements-dev.txt; \
+    else \
+        pip install --user --no-cache-dir --require-hashes -r requirements.txt; \
+    fi
 
 COPY package.json package-lock.json* ./
 RUN npm ci || npm install

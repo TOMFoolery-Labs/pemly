@@ -19,7 +19,7 @@
 #   --external-db         Use an existing PostgreSQL server instead of the bundled one
 #   --dir <path>          Install location (default /opt/pemly)
 #   --ref <git-ref>       Branch or tag to install from (default main)
-#   --upgrade             Pull the latest images and restart
+#   --upgrade             Update the checkout, refresh the image, and restart
 #   --uninstall           Stop Pemly and remove the install directory
 #   --non-interactive     Never prompt
 #   -h, --help            Show this help
@@ -200,7 +200,7 @@ do_install() {
     echo
     log_info "URL:      https://${DOMAIN}"
     log_info "Logs:     ${dir}/bootstrap.sh logs"
-    log_info "Upgrade:  ${dir}/bootstrap.sh upgrade"
+    log_info "Upgrade:  curl -fsSL ${REPO_URL}/raw/main/deploy/install.sh | sudo bash -s -- --upgrade"
     echo
     log_info "Next steps:"
     echo "  1. Find the generated admin password:"
