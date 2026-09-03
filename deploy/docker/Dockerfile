@@ -23,8 +23,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
+# requirements.txt is a compiled lock: exact versions with hashes, generated from
+# requirements.in by `make lock`. --require-hashes makes the build fail rather
+# than silently install a package whose contents changed - and it is the runtime
+# lock, so pytest and the other dev tooling no longer land in the image at all.
 COPY requirements.txt .
-RUN pip install --user --no-cache-dir -r requirements.txt
+RUN pip install --user --no-cache-dir --require-hashes -r requirements.txt
 
 COPY package.json package-lock.json* ./
 RUN npm ci || npm install

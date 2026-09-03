@@ -1,0 +1,22 @@
+# Development and CI dependencies. A superset of the runtime set, so CI installs
+# only requirements-dev.txt. Compiled to requirements-dev.txt by `make lock`.
+-r requirements.in
+
+# Testing
+pytest>=7.4.0
+pytest-django>=4.5.0
+pytest-cov>=4.1.0
+pytest-mock>=3.11.0
+factory-boy>=3.3.0
+freezegun>=1.2.0
+responses>=0.23.0
+
+# Linting. Pinned here so CI stops installing whatever ruff release is newest
+# that morning and failing on rules that did not exist yesterday.
+ruff>=0.6.0
+
+# Local development conveniences (development settings only, never production)
+django-browser-reload>=1.12.0
+
+# Lock management (`make lock`)
+uv>=0.5.0
