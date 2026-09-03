@@ -28,16 +28,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # 3.12 is what the image runs; testing on 3.11 tested a combination no
+      # deployment uses.
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'
           cache: 'pip'
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install --require-hashes -r requirements-dev.txt
 
       - name: Run tests with coverage
         env:
@@ -73,10 +75,15 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'
+          cache: 'pip'
 
+      # Ruff comes from the lock. Installing the newest release meant a rule
+      # added upstream overnight could fail CI on untouched code.
       - name: Install ruff
-        run: pip install ruff
+        run: |
+          python -m pip install --upgrade pip
+          pip install --require-hashes -r requirements-dev.txt
 
       - name: Run ruff linter
         run: ruff check .

@@ -1,4 +1,4 @@
-.PHONY: up up-build dev dev-build down down-v build logs shell migrate test lint issue-cert
+.PHONY: up up-build dev dev-build down down-v build logs shell migrate test lint lock issue-cert
 
 # All compose state lives in deploy/docker: compose files, .env, and the overlays
 # that bootstrap.sh selects via COMPOSE_FILE.
@@ -52,3 +52,15 @@ test:
 
 lint:
 	docker run --rm -v $(CURDIR):/w -w /w ghcr.io/astral-sh/ruff:latest check .
+
+# Recompile the dependency locks from requirements.in / requirements-dev.in.
+# Run this after editing either .in file, and commit the generated .txt files;
+# they carry exact versions and hashes, and nothing else installs dependencies.
+# --python-version 3.11 keeps the lock valid on the oldest interpreter we claim
+# to support, while --universal keeps it valid on a Linux image and a macOS
+# development machine from the same file.
+lock:
+	uv pip compile requirements.in --universal --generate-hashes \
+		--python-version 3.11 -o requirements.txt
+	uv pip compile requirements-dev.in --universal --generate-hashes \
+		--python-version 3.11 -o requirements-dev.txt

@@ -139,7 +139,7 @@ external databases, and migrating from an older systemd installation.
 cd pkife
 python -m venv venv
 source venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements-dev.txt   # runtime + test tooling, hash-pinned
 ```
 
 ### 2. Install Node Dependencies (for Tailwind)
@@ -283,6 +283,22 @@ so it uses the in-process CFSSL manager instead of the separate container.
 installs, backups, and migrating from an older systemd installation.
 
 ## Development
+
+### Dependencies
+
+`requirements.in` and `requirements-dev.in` list what we depend on;
+`requirements.txt` and `requirements-dev.txt` are compiled locks with exact
+versions and hashes, and they are the only thing anything installs. The image
+installs the runtime lock with `--require-hashes`, so a package whose contents
+change under a version we already pinned fails the build instead of shipping.
+
+Add or bump a dependency by editing the `.in` file and running:
+
+```bash
+make lock          # needs uv: pip install uv
+```
+
+Commit both generated `.txt` files. Never hand-edit them.
 
 ### Tailwind CSS
 
