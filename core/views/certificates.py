@@ -29,6 +29,7 @@ from core.permissions import (
 )
 from core.services import CFSSLClient, CFSSLError
 from core.services.cfssl import CertificateRequest
+from core.utils import get_client_ip
 
 
 def get_signing_cas():
@@ -348,7 +349,7 @@ class CertificateCreateView(CanManageCertificatesMixin, View):
                         'signing_ca': ca.name,
                         'signing_ca_id': str(ca.id),
                     },
-                    ip_address=request.META.get('REMOTE_ADDR'),
+                    ip_address=get_client_ip(request),
                     user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
                 )
 
@@ -426,7 +427,7 @@ class CertificateRevokeView(CanManageCertificatesMixin, View):
                 'reason': reason,
                 'serial_number': certificate.serial_number,
             },
-            ip_address=request.META.get('REMOTE_ADDR'),
+            ip_address=get_client_ip(request),
             user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
         )
 
@@ -481,7 +482,7 @@ class CertificateArchiveView(CanManageCertificatesMixin, View):
             details={
                 'serial_number': certificate.serial_number,
             },
-            ip_address=request.META.get('REMOTE_ADDR'),
+            ip_address=get_client_ip(request),
             user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
         )
 
@@ -513,7 +514,7 @@ class CertificateUnarchiveView(CanManageCertificatesMixin, View):
             details={
                 'serial_number': certificate.serial_number,
             },
-            ip_address=request.META.get('REMOTE_ADDR'),
+            ip_address=get_client_ip(request),
             user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
         )
 
@@ -714,7 +715,7 @@ class CertificateRenewView(CanManageCertificatesMixin, View):
                         'revoked_old': revoke_old,
                         'validity_days': new_certificate.validity_days,
                     },
-                    ip_address=request.META.get('REMOTE_ADDR'),
+                    ip_address=get_client_ip(request),
                     user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
                 )
 
@@ -762,7 +763,7 @@ class CertificateDownloadView(LoginRequiredMixin, View):
             resource_name=certificate.common_name,
             user=request.user,
             details={'file_type': file_type},
-            ip_address=request.META.get('REMOTE_ADDR'),
+            ip_address=get_client_ip(request),
             user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
         )
 

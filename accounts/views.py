@@ -10,11 +10,7 @@ from django.views.generic import DeleteView, ListView
 
 from accounts.forms import UserCreateForm, UserEditForm
 from accounts.models import UserProfile
-from accounts.throttling import (
-    login_is_throttled,
-    record_login_blocked,
-    record_login_failure,
-)
+from accounts.throttling import is_throttled, record_blocked
 from core.models import AuditLog
 from core.utils import get_client_ip
 from core.permissions import SuperAdminRequiredMixin
@@ -32,46 +28,35 @@ class LoginView(View):
         return render(request, self.template_name, {'form': form})
 
     def post(self, request):
-        ip_address = get_client_ip(request)
-        user_agent = request.META.get('HTTP_USER_AGENT', '')[:500]
+        # Enforcement is in accounts.backends.ThrottledModelBackend; this check
+        # exists so a locked-out person sees why, and a 429, instead of the
+        # generic bad-password error. It runs before the password is checked so
+        # timing gives nothing away.
         username = (request.POST.get('username') or '').strip()
-
-        # Refuse before checking the password, so a locked-out attacker learns
-        # nothing from response timing or from the error text.
-        if login_is_throttled(username, ip_address):
-            record_login_blocked(username, ip_address, user_agent)
-            messages.error(
-                request,
-                "Too many failed sign-in attempts. Wait "
-                f"{settings.LOGIN_FAILURE_WINDOW_MINUTES} minutes and try again."
-            )
+        if is_throttled(username, get_client_ip(request)):
+            record_blocked(username, get_client_ip(request), request.META.get('HTTP_USER_AGENT', ''))
+            # An unbound form cannot carry an error, and binding it would run the
+            # password check we are refusing to run, so the message travels
+            # beside the form rather than inside it.
             return render(
                 request,
                 self.template_name,
-                {'form': AuthenticationForm()},
+                {
+                    'form': AuthenticationForm(request),
+                    'throttle_error': (
+                        "Too many failed sign-in attempts. Wait "
+                        f"{settings.LOGIN_FAILURE_WINDOW_MINUTES} minutes and try again."
+                    ),
+                },
                 status=429,
             )
 
+        # Success and failure are both audited by accounts.signals, whichever
+        # view the attempt came through.
         form = AuthenticationForm(request, data=request.POST)
         if form.is_valid():
-            user = form.get_user()
-            login(request, user)
-
-            # Log the login
-            AuditLog.log(
-                action=AuditLog.Action.USER_LOGIN,
-                resource_type='user',
-                resource_name=user.username,
-                user=user,
-                ip_address=ip_address,
-                user_agent=user_agent,
-            )
-
+            login(request, form.get_user())
             return redirect('core:dashboard')
-
-        # A rejected password used to leave no trace whatsoever, which made
-        # guessing invisible to the audit log as well as unlimited.
-        record_login_failure(username, ip_address, user_agent)
 
         return render(request, self.template_name, {'form': form})
 
@@ -84,16 +69,7 @@ class LogoutView(View):
 
     def post(self, request):
         if request.user.is_authenticated:
-            # Log the logout before we lose the user
-            AuditLog.log(
-                action=AuditLog.Action.USER_LOGOUT,
-                resource_type='user',
-                resource_name=request.user.username,
-                user=request.user,
-                ip_address=get_client_ip(request),
-                user_agent=request.META.get('HTTP_USER_AGENT', '')[:500]
-            )
-            logout(request)
+            logout(request)  # audited by accounts.signals
 
         return redirect('accounts:login')
 

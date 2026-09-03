@@ -1,15 +1,23 @@
 """
 Login throttling.
 
-Repeated password guessing against a certificate authority console was neither
-limited nor recorded: LoginView logged only successes, so a failed attempt left
-no trace at all, and nothing slowed one attempt down.
+Failures are counted straight out of the audit log: one source of truth, shared
+by every gunicorn worker, surviving restarts, and visible to an auditor rather
+than only to a rate limiter.
 
-Failures are counted straight out of the audit log. That keeps one source of
-truth - an auditor sees every rejected attempt, and the count is shared by all
-gunicorn workers and survives a restart, which a per-process cache would not be.
+The lock is keyed on the (username, address) *pair*. Keying on the username
+alone - the first version of this - let anyone who knew an operator's username
+keep them locked out of the CA console from anywhere, indefinitely, by sending
+ten bad passwords every fourteen minutes. A pair lock means an attacker locks
+out only their own address. A much looser per-address limit still catches
+spraying many usernames from one place.
+
+Enforcement lives in accounts.backends.ThrottledModelBackend, so it covers every
+path that ends in authenticate(): /accounts/login/, /admin/login/, and DRF's
+session authentication. Recording lives in accounts.signals, for the same reason.
 """
 
+import logging
 from datetime import timedelta
 
 from django.conf import settings
@@ -17,14 +25,20 @@ from django.utils import timezone
 
 from core.models import AuditLog
 
+logger = logging.getLogger(__name__)
+
+# Once a pair is locked, refused attempts are collapsed to one audit row per
+# this interval. The throttle stops password checks; this stops an attacker
+# turning every refused request into a row and filling the database with them.
+BLOCKED_ROW_INTERVAL = timedelta(seconds=60)
+
 
 def _window_start():
-    minutes = getattr(settings, 'LOGIN_FAILURE_WINDOW_MINUTES', 15)
-    return timezone.now() - timedelta(minutes=minutes)
+    return timezone.now() - timedelta(minutes=settings.LOGIN_FAILURE_WINDOW_MINUTES)
 
 
-def _failures_since_last_success(username: str, since):
-    """Count this username's failures, ignoring anything before its last success.
+def _pair_failures(username: str, ip_address: str | None, since) -> int:
+    """Failures for this pair, ignoring anything before the user's last success.
 
     A successful sign-in clears the slate: someone who mistypes a password four
     times and then gets it right should not be four failures closer to a lockout
@@ -37,62 +51,76 @@ def _failures_since_last_success(username: str, since):
         .values_list('timestamp', flat=True)
         .first()
     )
-    start = max(since, last_success) if last_success else since
+    if last_success:
+        since = last_success
 
     return AuditLog.objects.filter(
         action=AuditLog.Action.USER_LOGIN_FAILED,
         resource_name=username,
-        timestamp__gte=start,
+        ip_address=ip_address,
+        timestamp__gte=since,
     ).count()
 
 
-def login_is_throttled(username: str, ip_address: str | None) -> bool:
-    """Whether this attempt should be refused before any password is checked."""
+def is_throttled(username: str, ip_address: str | None) -> bool:
+    """Whether an attempt from this pair should be refused before any password check."""
     since = _window_start()
 
-    if username:
-        limit = getattr(settings, 'LOGIN_FAILURE_LIMIT', 10)
-        if limit and _failures_since_last_success(username, since) >= limit:
+    if username and settings.LOGIN_FAILURE_LIMIT:
+        if _pair_failures(username, ip_address, since) >= settings.LOGIN_FAILURE_LIMIT:
             return True
 
-    if ip_address:
-        ip_limit = getattr(settings, 'LOGIN_FAILURE_LIMIT_PER_IP', 50)
-        if ip_limit:
-            ip_failures = AuditLog.objects.filter(
-                action=AuditLog.Action.USER_LOGIN_FAILED,
-                ip_address=ip_address,
-                timestamp__gte=since,
-            ).count()
-            if ip_failures >= ip_limit:
-                return True
+    if ip_address and settings.LOGIN_FAILURE_LIMIT_PER_IP:
+        ip_failures = AuditLog.objects.filter(
+            action=AuditLog.Action.USER_LOGIN_FAILED,
+            ip_address=ip_address,
+            timestamp__gte=since,
+        ).count()
+        if ip_failures >= settings.LOGIN_FAILURE_LIMIT_PER_IP:
+            return True
 
     return False
 
 
-def record_login_failure(username: str, ip_address: str | None, user_agent: str) -> None:
+def _write(action, username: str, ip_address: str | None, user_agent: str, details: dict) -> None:
+    # A failed audit insert must not turn a refused login into a 500: the
+    # refusal already happened, and the attacker gains nothing from the error.
+    try:
+        AuditLog.log(
+            action=action,
+            resource_type='user',
+            resource_name=username[:255],
+            user=None,
+            details=details,
+            ip_address=ip_address,
+            user_agent=user_agent[:500],
+        )
+    except Exception:
+        logger.exception("Could not write %s audit entry for %r", action, username[:255])
+
+
+def record_failure(username: str, ip_address: str | None, user_agent: str = '') -> None:
     """Record a rejected password. The submitted password is never stored."""
-    AuditLog.log(
-        action=AuditLog.Action.USER_LOGIN_FAILED,
-        resource_type='user',
-        resource_name=username[:255],
-        user=None,
-        details={'username': username[:255]},
-        ip_address=ip_address,
-        user_agent=user_agent,
+    _write(
+        AuditLog.Action.USER_LOGIN_FAILED,
+        username, ip_address, user_agent,
+        {'username': username[:255]},
     )
 
 
-def record_login_blocked(username: str, ip_address: str | None, user_agent: str) -> None:
-    """Record an attempt refused by the throttle rather than by a bad password."""
-    AuditLog.log(
+def record_blocked(username: str, ip_address: str | None, user_agent: str = '') -> None:
+    """Record an attempt refused by the throttle, at most once per interval per pair."""
+    recent = AuditLog.objects.filter(
         action=AuditLog.Action.USER_LOGIN_BLOCKED,
-        resource_type='user',
         resource_name=username[:255],
-        user=None,
-        details={
-            'username': username[:255],
-            'window_minutes': getattr(settings, 'LOGIN_FAILURE_WINDOW_MINUTES', 15),
-        },
         ip_address=ip_address,
-        user_agent=user_agent,
+        timestamp__gte=timezone.now() - BLOCKED_ROW_INTERVAL,
+    ).exists()
+    if recent:
+        return
+
+    _write(
+        AuditLog.Action.USER_LOGIN_BLOCKED,
+        username, ip_address, user_agent,
+        {'username': username[:255], 'window_minutes': settings.LOGIN_FAILURE_WINDOW_MINUTES},
     )

@@ -37,7 +37,7 @@ CFSSL_AUTH_KEY = os.environ.get('CFSSL_AUTH_KEY', '')
 CFSSL_AUTO_START = os.environ.get('CFSSL_AUTO_START', 'true').lower() == 'true'
 CFSSL_BINARY_PATH = os.environ.get('CFSSL_BINARY_PATH', '')  # Auto-detect if empty
 CFSSL_HOST = os.environ.get('CFSSL_HOST', 'localhost')
-CFSSL_PORT = int(os.environ.get('CFSSL_PORT', '8888'))
+CFSSL_PORT = int(os.environ.get('CFSSL_PORT') or '8888')
 
 # Application definition
 INSTALLED_APPS = [
@@ -122,9 +122,13 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # rejected attempt is visible to an auditor instead of only to a rate limiter.
 # The per-username limit stops targeted guessing; the far looser per-address limit
 # stops spraying without letting one office NAT lock out everyone behind it.
-LOGIN_FAILURE_LIMIT = int(os.environ.get('LOGIN_FAILURE_LIMIT', '10'))
-LOGIN_FAILURE_LIMIT_PER_IP = int(os.environ.get('LOGIN_FAILURE_LIMIT_PER_IP', '50'))
-LOGIN_FAILURE_WINDOW_MINUTES = int(os.environ.get('LOGIN_FAILURE_WINDOW_MINUTES', '15'))
+# `or` rather than a default argument: a `KEY=` line in .env yields '' and int('')
+# would crash settings import, so the container never starts.
+LOGIN_FAILURE_LIMIT = int(os.environ.get('LOGIN_FAILURE_LIMIT') or '10')
+LOGIN_FAILURE_LIMIT_PER_IP = int(os.environ.get('LOGIN_FAILURE_LIMIT_PER_IP') or '50')
+LOGIN_FAILURE_WINDOW_MINUTES = int(os.environ.get('LOGIN_FAILURE_WINDOW_MINUTES') or '15')
+
+AUTHENTICATION_BACKENDS = ['accounts.backends.ThrottledModelBackend']
 
 LOGIN_URL = 'accounts:login'
 LOGIN_REDIRECT_URL = 'core:dashboard'

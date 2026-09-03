@@ -19,6 +19,7 @@ from core.models import (
 from core.permissions import AdminOrSuperAdminRequiredMixin, SuperAdminRequiredMixin
 from core.services import CFSSLClient, CFSSLError
 from core.services.cfssl import CertificateRequest
+from core.utils import get_client_ip
 
 
 class CASetupForm(forms.Form):
@@ -184,7 +185,7 @@ class CASetupView(AdminOrSuperAdminRequiredMixin, View):
                         'key_size': ca.key_size,
                         'validity_years': ca.validity_years,
                     },
-                    ip_address=request.META.get('REMOTE_ADDR'),
+                    ip_address=get_client_ip(request),
                     user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
                 )
 
@@ -236,7 +237,7 @@ class CADownloadView(LoginRequiredMixin, View):
             resource_name=ca.name,
             user=request.user,
             details={'file_type': 'ca_chain' if download_chain else 'ca_certificate'},
-            ip_address=request.META.get('REMOTE_ADDR'),
+            ip_address=get_client_ip(request),
             user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
         )
 
@@ -505,7 +506,7 @@ class IntermediateCACreateView(AdminOrSuperAdminRequiredMixin, View):
                         'path_length': intermediate_ca.path_length,
                         'validity_years': intermediate_ca.validity_years,
                     },
-                    ip_address=request.META.get('REMOTE_ADDR'),
+                    ip_address=get_client_ip(request),
                     user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
                 )
 
@@ -541,7 +542,7 @@ class CAKeyExportView(AdminOrSuperAdminRequiredMixin, View):
             resource_name=ca.name,
             user=request.user,
             details={'action': 'private_key_export'},
-            ip_address=request.META.get('REMOTE_ADDR'),
+            ip_address=get_client_ip(request),
             user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
         )
 
@@ -598,7 +599,7 @@ class CAKeyRemoveView(AdminOrSuperAdminRequiredMixin, View):
                 resource_name=ca.name,
                 user=request.user,
                 details={'action': 'air_gap'},
-                ip_address=request.META.get('REMOTE_ADDR'),
+                ip_address=get_client_ip(request),
                 user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
             )
 
@@ -651,7 +652,7 @@ class CAKeyRestoreView(AdminOrSuperAdminRequiredMixin, View):
                 resource_name=ca.name,
                 user=request.user,
                 details={'action': 'key_restore'},
-                ip_address=request.META.get('REMOTE_ADDR'),
+                ip_address=get_client_ip(request),
                 user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
             )
 
@@ -745,7 +746,7 @@ class IntermediateCACSRView(AdminOrSuperAdminRequiredMixin, View):
                         'parent_ca_name': parent_ca.name,
                         'status': 'pending',
                     },
-                    ip_address=request.META.get('REMOTE_ADDR'),
+                    ip_address=get_client_ip(request),
                     user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
                 )
 
@@ -843,7 +844,7 @@ class IntermediateCAImportView(AdminOrSuperAdminRequiredMixin, View):
                     'not_before': str(pending_ca.not_before),
                     'not_after': str(pending_ca.not_after),
                 },
-                ip_address=request.META.get('REMOTE_ADDR'),
+                ip_address=get_client_ip(request),
                 user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
             )
 
@@ -945,7 +946,7 @@ class OCSPGenerateCertView(AdminOrSuperAdminRequiredMixin, View):
                 resource_name=ca.name,
                 user=request.user,
                 details={'action': 'ocsp_certificate_generated'},
-                ip_address=request.META.get('REMOTE_ADDR'),
+                ip_address=get_client_ip(request),
                 user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
             )
 
@@ -1020,7 +1021,7 @@ class CADeleteView(SuperAdminRequiredMixin, View):
                 'certificates_deleted': certificates_count,
                 'pending_requests_deleted': pending_requests_count,
             },
-            ip_address=request.META.get('REMOTE_ADDR'),
+            ip_address=get_client_ip(request),
             user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
         )
 
