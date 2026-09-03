@@ -31,6 +31,7 @@ from .permissions import (
     user_can_approve_requests,
     get_certificates_for_user,
 )
+from core.utils import get_client_ip
 
 
 @extend_schema_view(
@@ -218,7 +219,7 @@ class CertificateViewSet(viewsets.ModelViewSet):
                     'signing_ca': ca.name,
                     'signing_ca_id': str(ca.id),
                 },
-                ip_address=request.META.get('REMOTE_ADDR'),
+                ip_address=get_client_ip(request),
                 user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
             )
 
@@ -287,7 +288,7 @@ class CertificateViewSet(viewsets.ModelViewSet):
                     'reason': reason,
                     'serial_number': certificate.serial_number,
                 },
-                ip_address=request.META.get('REMOTE_ADDR'),
+                ip_address=get_client_ip(request),
                 user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
             )
 
@@ -514,7 +515,7 @@ class PendingCertificateRequestViewSet(viewsets.ModelViewSet):
                     'serial_number': certificate.serial_number,
                     'issued_certificate_id': str(certificate.id),
                 },
-                ip_address=request.META.get('REMOTE_ADDR'),
+                ip_address=get_client_ip(request),
                 user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
             )
 
@@ -532,7 +533,7 @@ class PendingCertificateRequestViewSet(viewsets.ModelViewSet):
                     'requester': cert_request.requested_by.username,
                     'via_approval': True,
                 },
-                ip_address=request.META.get('REMOTE_ADDR'),
+                ip_address=get_client_ip(request),
                 user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
             )
 

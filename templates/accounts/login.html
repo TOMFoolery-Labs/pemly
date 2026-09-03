@@ -13,8 +13,9 @@
   <div class="mt-8 bg-white py-8 px-6 shadow-lg rounded-xl sm:px-10">
     <h2 class="text-xl font-semibold text-slate-900 mb-6">Sign in to your account</h2>
 
-    {% if form.non_field_errors %}
+    {% if form.non_field_errors or throttle_error %}
     <div class="alert-danger mb-6">
+      {% if throttle_error %}<p>{{ throttle_error }}</p>{% endif %}
       {% for error in form.non_field_errors %}
       <p>{{ error }}</p>
       {% endfor %}

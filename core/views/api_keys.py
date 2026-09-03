@@ -10,6 +10,7 @@ from django.views.generic import ListView
 
 from core.models import APIKey, AuditLog
 from core.authentication import generate_api_key
+from core.utils import get_client_ip
 
 
 class APIKeyListView(LoginRequiredMixin, ListView):
@@ -63,7 +64,7 @@ class APIKeyCreateView(LoginRequiredMixin, View):
             details={
                 'prefix': prefix,
             },
-            ip_address=request.META.get('REMOTE_ADDR'),
+            ip_address=get_client_ip(request),
             user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
         )
 
@@ -91,7 +92,7 @@ class APIKeyDeleteView(LoginRequiredMixin, View):
             details={
                 'prefix': api_key.prefix,
             },
-            ip_address=request.META.get('REMOTE_ADDR'),
+            ip_address=get_client_ip(request),
             user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
         )
 

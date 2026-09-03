@@ -11,6 +11,7 @@ from django.views import View
 from core.models import AuditLog
 from core.permissions import SuperAdminRequiredMixin
 from core.services.backup import BackupService, BackupError
+from core.utils import get_client_ip
 
 
 class BackupForm(forms.Form):
@@ -111,7 +112,7 @@ class BackupView(SuperAdminRequiredMixin, View):
                         'encrypted': bool(backup_form.cleaned_data.get('password')),
                         'size_bytes': len(archive),
                     },
-                    ip_address=request.META.get('REMOTE_ADDR'),
+                    ip_address=get_client_ip(request),
                     user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
                 )
 
@@ -208,7 +209,7 @@ class RestoreConfirmView(SuperAdminRequiredMixin, View):
                     'mode': mode,
                     'summary': summary,
                 },
-                ip_address=request.META.get('REMOTE_ADDR'),
+                ip_address=get_client_ip(request),
                 user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
             )
 
