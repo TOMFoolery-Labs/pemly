@@ -338,10 +338,6 @@ cmd_up() {
     log_info "URL: https://$(grep -E '^PEMLY_DOMAIN=' "${ENV_FILE}" | cut -d= -f2-)"
 }
 
-# Build locally when the image cannot be pulled. Without this, `up` attempts a
-# pull that fails with a bare "error from registry: denied", interleaves it with
-# the progress display, and only then falls back to building - which reads as a
-# fatal error even though the build is proceeding normally.
 # Declare the certificate to Traefik only once it exists on disk. See the note in
 # traefik/dynamic/pemly.yml for why this is not declared statically.
 write_cert_config() {
@@ -357,10 +353,19 @@ EOF
     chmod 644 "${target}"
 }
 
-ensure_image() {
+configured_image() {
     local image
     image="$(grep -E '^PEMLY_IMAGE=' "${ENV_FILE}" 2>/dev/null | tail -n1 | cut -d= -f2- || true)"
-    image="${image:-${DEFAULT_IMAGE}}"
+    echo "${image:-${DEFAULT_IMAGE}}"
+}
+
+# Build locally when the image cannot be pulled. Without this, `up` attempts a
+# pull that fails with a bare "error from registry: denied", interleaves it with
+# the progress display, and only then falls back to building - which reads as a
+# fatal error even though the build is proceeding normally.
+ensure_image() {
+    local image
+    image="$(configured_image)"
 
     if docker image inspect "${image}" &>/dev/null; then
         return
@@ -377,10 +382,29 @@ ensure_image() {
     log_success "Image built"
 }
 
+# Unlike `up`, an image already present locally is no reason to stop: it was built
+# from the previous checkout and is precisely what this command replaces. Only a
+# successful pull lets us skip the build.
+#
+# The pinned third-party images (traefik, postgres) are deliberately not pulled
+# here. Their tags change only when the checkout changes them, and `up -d` pulls
+# an image it does not have - so a bump lands anyway, while an air-gapped host is
+# not failed by a registry it cannot reach.
 cmd_upgrade() {
     [[ -f "${ENV_FILE}" ]] || die "no .env found - nothing to upgrade"
-    log_info "Pulling latest images..."
-    docker compose pull
+
+    local image
+    image="$(configured_image)"
+
+    if docker pull --quiet "${image}" &>/dev/null; then
+        log_info "Pulled ${image}"
+    else
+        log_info "No published image for ${image}; rebuilding it from this checkout."
+        log_info "The build takes several minutes - do not interrupt it."
+        docker compose build
+        log_success "Image built"
+    fi
+
     docker compose up -d
     log_success "Upgrade complete (migrations ran in the app entrypoint)."
 }

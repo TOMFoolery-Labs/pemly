@@ -114,11 +114,13 @@ generated administrator password with:
 To upgrade:
 
 ```bash
-/opt/pemly/deploy/docker/bootstrap.sh upgrade
+curl -fsSL https://raw.githubusercontent.com/TOMFoolery-Labs/pemly/main/deploy/install.sh | sudo bash -s -- --upgrade
 ```
 
-This pulls the latest image and restarts; migrations run automatically. Your
-`.env`, database and certificates are untouched.
+This updates the code, refreshes the image and restarts; migrations run
+automatically. Your `.env`, database and certificates are untouched.
+`bootstrap.sh upgrade` on its own only refreshes the image - it does not update
+the checkout it builds from.
 
 See [deploy/README.md](deploy/README.md) for TLS options, air-gapped installs,
 external databases, and migrating from an older systemd installation.
@@ -262,7 +264,7 @@ make shell         # shell in the app container
 make migrate       # run migrations
 make test          # run the suite against the live source tree
 make issue-cert    # issue the web certificate from Pemly's own CA
-./deploy/docker/bootstrap.sh upgrade   # pull the latest image and restart
+./deploy/docker/bootstrap.sh upgrade   # refresh the image and restart
 ```
 
 ### Local container development

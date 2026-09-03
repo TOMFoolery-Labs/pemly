@@ -67,6 +67,32 @@ The password is printed once, on the first start of an empty install. Set
 your own. Once any user exists the bootstrap is a no-op, so restarts never reset
 a password.
 
+## Upgrades
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/TOMFoolery-Labs/pemly/main/deploy/install.sh | sudo bash -s -- --upgrade
+```
+
+This updates the checkout in `/opt/pemly` and restarts the stack. `.env`, the
+database and the certificate volume are untouched; migrations run in the app
+entrypoint. Until a release is tagged there is no image on ghcr.io to pull, so
+the upgrade rebuilds the image from the checkout - several minutes.
+
+Updating a checkout by hand takes one non-obvious step. `install.sh` clones with
+`--depth 1`, which implies `--single-branch`, and a fetch that names a branch
+explicitly writes only `FETCH_HEAD`: there is no `origin/main` ref to check out,
+and `git checkout -f origin/main` fails with `pathspec ... did not match`. The
+tree then stays where it was and the rebuild faithfully rebuilds the old code.
+
+```bash
+sudo -i                        # /opt/pemly is root-owned and 0700
+cd /opt/pemly
+git fetch --depth 1 origin main
+git checkout -f FETCH_HEAD     # not origin/main
+cd deploy/docker
+./bootstrap.sh upgrade
+```
+
 ## TLS
 
 ### Self-signed (default)
