@@ -72,6 +72,12 @@ services:
       # Traefik always terminates TLS, so the app can trust X-Forwarded-Proto and
       # keep SECURE_SSL_REDIRECT on without risking a redirect loop.
       USE_X_FORWARDED_PROTO: "true"
+      # Traefik is the only ingress, so REMOTE_ADDR is always the proxy's address
+      # on the edge network. Without this every audit entry records 172.x.y.z
+      # instead of the client that performed the action. core.utils.get_client_ip
+      # reads the last X-Forwarded-For hop - the one this proxy wrote - so a
+      # client-supplied header cannot forge it.
+      TRUST_X_FORWARDED_FOR: "true"
     volumes:
       - pemly_certs:/certs
     depends_on:

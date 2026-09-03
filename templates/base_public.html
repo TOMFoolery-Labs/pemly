@@ -19,7 +19,15 @@ what they will see, not the admin chrome wrapped around nothing.
   <title>{% block title %}PEMLY{% endblock %} - Certificate Manager</title>
   {% load static %}
   <link rel="stylesheet" href="{% static 'css/output.css' %}">
-  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  {% comment %}
+Alpine is served from our own static files, not a CDN. A third-party script tag
+executes with full authority inside an authenticated session on a certificate
+authority, and `3.x.x` floats - a hijacked or simply changed response would run
+here. Serving it locally also keeps the UI working in the air-gapped deployment,
+which has no outbound access at all. Verified against the npm dist for 3.17.1:
+sha256 b30997fc126d808b1a9b20ab3f504ded88df957818c02d6249bba3ec114eb0ec
+{% endcomment %}
+  <script defer src="{% static 'js/alpine-3.17.1.min.js' %}"></script>
   {% block extra_css %}{% endblock %}
 </head>
 <body class="h-full">

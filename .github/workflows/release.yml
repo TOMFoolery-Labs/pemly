@@ -90,7 +90,7 @@ jobs:
             ## Upgrade
 
             ```bash
-            /opt/pemly/deploy/docker/bootstrap.sh upgrade
+            curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/main/deploy/install.sh | sudo bash -s -- --upgrade
             ```
 
             Container image: `ghcr.io/${{ github.repository }}:${{ github.ref_name }}`

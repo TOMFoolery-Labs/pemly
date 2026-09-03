@@ -117,6 +117,15 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Login settings
+# Login throttling. Failures are counted out of the audit log rather than a cache,
+# so the limit holds across gunicorn workers and survives a restart - and every
+# rejected attempt is visible to an auditor instead of only to a rate limiter.
+# The per-username limit stops targeted guessing; the far looser per-address limit
+# stops spraying without letting one office NAT lock out everyone behind it.
+LOGIN_FAILURE_LIMIT = int(os.environ.get('LOGIN_FAILURE_LIMIT', '10'))
+LOGIN_FAILURE_LIMIT_PER_IP = int(os.environ.get('LOGIN_FAILURE_LIMIT_PER_IP', '50'))
+LOGIN_FAILURE_WINDOW_MINUTES = int(os.environ.get('LOGIN_FAILURE_WINDOW_MINUTES', '15'))
+
 LOGIN_URL = 'accounts:login'
 LOGIN_REDIRECT_URL = 'core:dashboard'
 LOGOUT_REDIRECT_URL = 'accounts:login'
@@ -140,6 +149,11 @@ REST_FRAMEWORK = {
 
 # drf-spectacular settings for OpenAPI/Swagger documentation
 SPECTACULAR_SETTINGS = {
+    # drf-spectacular serves the schema and Swagger UI with AllowAny by default,
+    # ignoring DEFAULT_PERMISSION_CLASSES. On a host that is reachable from the
+    # internet that hands an anonymous visitor the full API map of a certificate
+    # authority, so the docs require a session like everything else.
+    'SERVE_PERMISSIONS': ['rest_framework.permissions.IsAuthenticated'],
     'TITLE': 'PEMLY PKI API',
     'DESCRIPTION': 'REST API for automated certificate management',
     'VERSION': VERSION,

@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.forms import AuthenticationForm
@@ -9,23 +10,14 @@ from django.views.generic import DeleteView, ListView
 
 from accounts.forms import UserCreateForm, UserEditForm
 from accounts.models import UserProfile
+from accounts.throttling import (
+    login_is_throttled,
+    record_login_blocked,
+    record_login_failure,
+)
 from core.models import AuditLog
+from core.utils import get_client_ip
 from core.permissions import SuperAdminRequiredMixin
-
-
-def get_client_ip(request) -> str | None:
-    """Extract client IP from request.
-
-    Only trusts the X-Forwarded-For header when TRUST_X_FORWARDED_FOR is enabled
-    (i.e. the app runs behind a trusted proxy); otherwise the header is spoofable.
-    """
-    from django.conf import settings
-
-    if getattr(settings, 'TRUST_X_FORWARDED_FOR', False):
-        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-        if x_forwarded_for:
-            return x_forwarded_for.split(',')[0].strip()
-    return request.META.get('REMOTE_ADDR')
 
 
 class LoginView(View):
@@ -40,6 +32,26 @@ class LoginView(View):
         return render(request, self.template_name, {'form': form})
 
     def post(self, request):
+        ip_address = get_client_ip(request)
+        user_agent = request.META.get('HTTP_USER_AGENT', '')[:500]
+        username = (request.POST.get('username') or '').strip()
+
+        # Refuse before checking the password, so a locked-out attacker learns
+        # nothing from response timing or from the error text.
+        if login_is_throttled(username, ip_address):
+            record_login_blocked(username, ip_address, user_agent)
+            messages.error(
+                request,
+                "Too many failed sign-in attempts. Wait "
+                f"{settings.LOGIN_FAILURE_WINDOW_MINUTES} minutes and try again."
+            )
+            return render(
+                request,
+                self.template_name,
+                {'form': AuthenticationForm()},
+                status=429,
+            )
+
         form = AuthenticationForm(request, data=request.POST)
         if form.is_valid():
             user = form.get_user()
@@ -51,11 +63,15 @@ class LoginView(View):
                 resource_type='user',
                 resource_name=user.username,
                 user=user,
-                ip_address=get_client_ip(request),
-                user_agent=request.META.get('HTTP_USER_AGENT', '')[:500]
+                ip_address=ip_address,
+                user_agent=user_agent,
             )
 
             return redirect('core:dashboard')
+
+        # A rejected password used to leave no trace whatsoever, which made
+        # guessing invisible to the audit log as well as unlimited.
+        record_login_failure(username, ip_address, user_agent)
 
         return render(request, self.template_name, {'form': form})
 

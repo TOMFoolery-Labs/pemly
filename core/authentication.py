@@ -4,8 +4,11 @@ API authentication backends for REST API access.
 
 import hashlib
 import secrets
+
 from rest_framework import authentication, exceptions
-from .models import APIKey
+
+from .models import APIKey, AuditLog
+from .utils import get_client_ip
 
 
 class APIKeyAuthentication(authentication.BaseAuthentication):
@@ -38,12 +41,14 @@ class APIKeyAuthentication(authentication.BaseAuthentication):
         api_key = auth_header.replace('ApiKey ', '').strip()
 
         if not api_key.startswith('pemly_'):
+            self._record_failure(request, prefix='', reason='malformed prefix')
             raise exceptions.AuthenticationFailed('Invalid API key format')
 
         try:
             # Split key into prefix and secret
             parts = api_key.split('_')
             if len(parts) != 3:
+                self._record_failure(request, prefix='', reason='malformed key')
                 raise exceptions.AuthenticationFailed('Invalid API key format')
 
             prefix = parts[1]
@@ -59,6 +64,7 @@ class APIKeyAuthentication(authentication.BaseAuthentication):
             )
 
             if not key_obj.is_valid:
+                self._record_failure(request, prefix=prefix, reason='inactive or expired')
                 raise exceptions.AuthenticationFailed('API key is inactive or expired')
 
             # Update last used timestamp
@@ -67,7 +73,20 @@ class APIKeyAuthentication(authentication.BaseAuthentication):
             return (key_obj.user, key_obj)
 
         except APIKey.DoesNotExist:
+            self._record_failure(request, prefix=prefix, reason='no such key')
             raise exceptions.AuthenticationFailed('Invalid API key')
+
+    def _record_failure(self, request, prefix: str, reason: str) -> None:
+        """Audit a rejected key. Only the public prefix is recorded, never the key."""
+        AuditLog.log(
+            action=AuditLog.Action.API_KEY_AUTH_FAILED,
+            resource_type='api_key',
+            resource_name=prefix[:255],
+            user=None,
+            details={'prefix': prefix[:8], 'reason': reason},
+            ip_address=get_client_ip(request),
+            user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
+        )
 
 
 def generate_api_key():
