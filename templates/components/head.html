@@ -1,0 +1,17 @@
+{% load static %}
+{% comment %}
+Shared <head> for base.html and base_public.html. The title and extra_css
+blocks stay in those shells: a block inside an included template cannot be
+overridden by the page that extends the shell.
+
+Alpine is served from our own static files, not a CDN. A third-party script tag
+executes with full authority inside an authenticated session on a certificate
+authority, and `3.x.x` floats - a hijacked or simply changed response would run
+here. Serving it locally also keeps the UI working in the air-gapped deployment,
+which has no outbound access at all. The integrity attribute makes the browser
+refuse the file if what it receives is not the 3.17.1 dist verified against npm.
+{% endcomment %}
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="{% static 'css/output.css' %}">
+<script defer src="{% static 'js/alpine-3.17.1.min.js' %}" integrity="sha256-swmX/BJtgIsamyCrP1BN7YjflXgYwC1iSbuj7BFOsOw="></script>

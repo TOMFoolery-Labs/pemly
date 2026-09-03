@@ -62,3 +62,19 @@ class TestTrustPortalRenders:
         root_ca.save()
 
         assert client.get(portal_url(root_ca)).status_code == 404
+
+
+@pytest.mark.django_db
+def test_the_page_title_comes_from_the_page(client, root_ca):
+    """The shared <head> include must not swallow the title block."""
+    body = client.get(portal_url(root_ca)).content.decode()
+
+    assert f'<title>Trust {root_ca.name} - Certificate Manager</title>' in body
+
+
+@pytest.mark.django_db
+def test_alpine_is_served_locally_with_integrity(client, root_ca):
+    body = client.get(portal_url(root_ca)).content.decode()
+
+    assert 'cdn.jsdelivr.net' not in body
+    assert 'integrity="sha256-' in body

@@ -359,7 +359,29 @@ configured_image() {
     echo "${image:-${DEFAULT_IMAGE}}"
 }
 
-# Build locally when the image cannot be pulled. Without this, `up` attempts a
+# Pull the image. Returns 0 when it was pulled and 1 when the registry says it
+# does not exist; any other failure is fatal. Earlier versions treated every
+# failure as "not published" and quietly built a local image under the published
+# tag - so a registry outage, a rate limit, or a broken DNS resolver during an
+# upgrade produced an unofficial build wearing the official name, and the error
+# that explained it had been sent to /dev/null.
+pull_image() {
+    local image="$1" output
+    if output="$(docker pull --quiet "${image}" 2>&1)"; then
+        log_info "Pulled ${image}"
+        return 0
+    fi
+    # ghcr.io answers "denied" for an image that does not exist; Docker Hub and
+    # others say "not found", "manifest unknown", or "name unknown".
+    if grep -qiE 'denied|not found|manifest unknown|name unknown|unauthorized' <<<"${output}"; then
+        return 1
+    fi
+    log_error "Could not pull ${image}:"
+    printf '%s\n' "${output}" >&2
+    die "the pull failed for a reason other than the image being absent - fix that rather than building an unofficial image under its tag"
+}
+
+# Build locally when the image is not published. Without this, `up` attempts a
 # pull that fails with a bare "error from registry: denied", interleaves it with
 # the progress display, and only then falls back to building - which reads as a
 # fatal error even though the build is proceeding normally.
@@ -371,8 +393,7 @@ ensure_image() {
         return
     fi
 
-    if docker pull --quiet "${image}" &>/dev/null; then
-        log_info "Pulled ${image}"
+    if pull_image "${image}"; then
         return
     fi
 
@@ -396,9 +417,7 @@ cmd_upgrade() {
     local image
     image="$(configured_image)"
 
-    if docker pull --quiet "${image}" &>/dev/null; then
-        log_info "Pulled ${image}"
-    else
+    if ! pull_image "${image}"; then
         log_info "No published image for ${image}; rebuilding it from this checkout."
         log_info "The build takes several minutes - do not interrupt it."
         docker compose build

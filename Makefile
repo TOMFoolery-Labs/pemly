@@ -45,8 +45,12 @@ issue-cert:
 	$(BOOTSTRAP) issue-cert
 
 # Quality ---------------------------------------------------------------------
+# The runtime image carries no test tooling, so the suite runs in the dev
+# build (compose.dev.yml: builder stage, dev lock, pemly:dev tag).
 test:
-	cd $(COMPOSE_DIR) && $(COMPOSE) run --rm --no-deps --entrypoint "" \
+	cd $(COMPOSE_DIR) && $(COMPOSE) -f compose.yml -f compose.dev.yml build app
+	cd $(COMPOSE_DIR) && $(COMPOSE) -f compose.yml -f compose.dev.yml \
+		run --rm --no-deps --entrypoint "" \
 		-v $(CURDIR):/app -e DJANGO_SETTINGS_MODULE=pkife.settings.testing \
 		app python -m pytest
 
